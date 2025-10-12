@@ -43,3 +43,40 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# Flutter & Dart
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+Generated.xcconfig
+flutter_export_environment.sh
+
+# IDE-specific
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Android specific
+android/.gradle/
+android/app/build/
+android/local.properties
+android/key.properties
+
+# iOS specific
+ios/Pods/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/App.framework
+ios/Runner/GeneratedPluginRegistrant.*
+
+# Web builds (Netlify will rebuild this)
+build/web/
