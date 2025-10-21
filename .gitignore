@@ -1,17 +1,142 @@
-*.FASL
-*.fasl
-*.lisp-temp
-*.dfsl
-*.pfsl
-*.d64fsl
-*.p64fsl
-*.lx64fsl
-*.lx32fsl
-*.dx64fsl
-*.dx32fsl
-*.fx64fsl
-*.fx32fsl
-*.sx64fsl
-*.sx32fsl
-*.wx64fsl
-*.wx32fsl
+# ----------------------------------------
+# Miscellaneous
+# ----------------------------------------
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# ----------------------------------------
+# IDE-specific
+# ----------------------------------------
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/  # uncomment this if you don't want to share VS Code settings
+
+# ----------------------------------------
+# Flutter & Dart
+# ----------------------------------------
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+coverage/
+Generated.xcconfig
+flutter_export_environment.sh
+
+# ----------------------------------------
+# Flutter iOS/macOS
+# ----------------------------------------
+**/ios/Flutter/.last_build_id
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+**/macos/Flutter/ephemeral/
+**/ios/Flutter/ephemeral/
+
+# ----------------------------------------
+# Flutter Web
+# ----------------------------------------
+web/.dart_tool/
+web/build/
+
+# ----------------------------------------
+# Flutter Docs
+# ----------------------------------------
+**/doc/api/
+
+# ----------------------------------------
+# Android Studio & Gradle
+# ----------------------------------------
+/android/app/debug
+/android/app/profile
+/android/app/release
+/android/.gradle/
+/android/local.properties
+/android/key.properties
+
+# ----------------------------------------
+# Symbolication & Obfuscation
+# ----------------------------------------
+app.*.symbols
+app.*.map.json
+
+# ========================
+# 🧠 Python & FastAPI Ignore
+# ========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+.env
+.env.*
+*.log
+*.pot
+*.py[cod]
+*$py.class
+
+# ========================
+# 🧠 IDE / Editor Files
+# ========================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ========================
+# 🧠 OS Files
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# 🧠 Virtual Environments
+# ========================
+venv/
+env/
+ENV/
+.venv/
+Scripts/
+bin/
+Lib/
+Include/
+
+# ========================
+# 🧠 Build / Cache
+# ========================
+build/
+dist/
+*.egg-info/
+.eggs/
+__pypackages__/
+
+# ========================
+# 🧠 Coverage / Testing
+# ========================
+.coverage
+.tox/
+.nox/
+.pytest_cache/
+htmlcov/
+
+# ========================
+# 🧠 Render / Railway
+# ========================
+*.pid
+*.lock
+*.log
+node_modules/
