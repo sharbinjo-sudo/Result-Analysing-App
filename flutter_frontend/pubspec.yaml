@@ -36,6 +36,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.2.0
   flutter_secure_storage: ^9.2.4
+  dio: ^5.9.0
+  fl_chart: ^1.1.1
+  file_picker: ^10.3.3
 
 dev_dependencies:
   flutter_test:
