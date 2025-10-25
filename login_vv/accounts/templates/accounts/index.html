@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - V V College of Engineering</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="register-box">
+      <img src="vvcoe.jpg" alt="College Logo" class="logo" />
+      <h2>Login</h2>
+      <link rel="stylesheet" href="{% static 'accounts/style.css' %}">
+    <img src="{% static 'accounts/vvcoe.jpg' %}" alt="Logo">
+
+
+     <form method="POST" action="{% url 'login' %}">
+        {% csrf_token %}
+        {% if messages %}
+          {% for message in messages %}
+            <p style="color:red;">{{ message }}</p>
+          {% endfor %}
+        {% endif %}
+        
+        <input type="text" id="fullname" placeholder="Full Name" required />
+        <input type="email" id="email" placeholder="Email" required />
+        <input type="password" id="password" placeholder="Password" required />
+        <button type="submit">Login</button>
+    </form>
+
+
+      <p>Don’t have an account? 
+        <a href="register.html" id="registerLink">Register</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Redirect to Dashboard after login
+    document.getElementById("loginForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if (email && password) {
+        window.location.href = "page.html"; // Go to dashboard
+      } else {
+        alert("Please enter all fields.");
+      }
+    });
+
+    // Optional: if you want to do anything special on clicking Register
+    document.getElementById("registerLink").addEventListener("click", function() {
+      // You can add animations or logics here if needed
+      // By default, it will go to register.html
+    });
+  </script>
+</body>
+</html>
