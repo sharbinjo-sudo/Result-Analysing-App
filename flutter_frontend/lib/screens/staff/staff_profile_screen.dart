@@ -11,10 +11,11 @@ class StaffProfileScreen extends StatefulWidget {
 class _StaffProfileScreenState extends State<StaffProfileScreen>
     with SingleTickerProviderStateMixin {
   static const double sidebarWidth = 240;
-  late AnimationController _controller;
-  late Animation<double> _sidebarTranslate;
-  late Animation<double> _contentTranslate;
+  late final AnimationController _controller;
+  late final Animation<double> _sidebarTranslate;
+  late final Animation<double> _contentTranslate;
   bool _isOpen = false;
+  bool _navigating = false;
 
   @override
   void initState() {
@@ -34,27 +35,38 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   }
 
   void _toggleSidebar() {
+    if (_navigating) return;
     setState(() {
       _isOpen = !_isOpen;
-      if (_isOpen) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
+      _isOpen ? _controller.forward() : _controller.reverse();
     });
   }
 
-  void _handleSidebarNavigation(String route) {
-    _toggleSidebar();
-    Future.delayed(const Duration(milliseconds: 250), () {
-      if (ModalRoute.of(context)?.settings.name != route) {
-        if (route == '/login') {
-          Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
-        } else {
-          Navigator.pushNamed(context, route);
-        }
+  Future<void> _handleSidebarNavigation(String route) async {
+    if (_navigating) return;
+    _navigating = true;
+
+    if (ModalRoute.of(context)?.settings.name == route) {
+      await _controller.reverse();
+      setState(() => _isOpen = false);
+      _navigating = false;
+      return;
+    }
+
+    if (mounted) Navigator.pushReplacementNamed(context, route);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) {
+        await _controller.reverse();
+        setState(() => _isOpen = false);
       }
+      _navigating = false;
     });
+  }
+
+  void _logout() {
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
   @override
@@ -63,65 +75,197 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     super.dispose();
   }
 
+  // ✅ Header identical to Admin’s style
   Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
-        ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.menu_rounded,
+                  color: Color(0xFFB11116), size: 28),
+              onPressed: _toggleSidebar,
+              tooltip: 'Menu',
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              "Staff Profile",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFB11116),
+              ),
+            ),
+            const Spacer(),
+            Material(
+              color: Colors.white,
+              elevation: 2,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/staffDashboard',
+                    (route) => false,
+                  );
+                },
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFB11116),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.dashboard, color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(
-                  Icons.menu_rounded,
-                  color: Color(0xFFB11116),
-                  size: 28,
-                ),
-                onPressed: _toggleSidebar,
+    );
+  }
+
+  // ✅ Profile Card identical in style to Admin’s profile card
+  Widget _buildProfileCard() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        width: 400,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircleAvatar(
+              radius: 40,
+              backgroundColor: Color(0xFFB11116),
+              child: Icon(Icons.person, size: 40, color: Colors.white),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Staff Profile",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFB11116),
               ),
-              const SizedBox(width: 10),
-              const Text(
-                "Staff Profile",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFB11116),
+            ),
+            const SizedBox(height: 12),
+
+            // ✅ Added Name (like admin)
+            const ListTile(
+              leading: Icon(Icons.person_outline, color: Color(0xFFB11116)),
+              title: Text("Name"),
+              subtitle: Text("S. Meena"),
+            ),
+
+            const ListTile(
+              leading: Icon(Icons.email_outlined, color: Color(0xFFB11116)),
+              title: Text("Email"),
+              subtitle: Text("staff@vvcoe.com"),
+            ),
+            const ListTile(
+              leading: Icon(Icons.school_outlined, color: Color(0xFFB11116)),
+              title: Text("Department"),
+              subtitle: Text("Artificial Intelligence and Data Science"),
+            ),
+            const ListTile(
+              leading: Icon(Icons.badge_outlined, color: Color(0xFFB11116)),
+              title: Text("Role"),
+              subtitle: Text("Faculty"),
+            ),
+            const SizedBox(height: 28),
+
+            // ✅ Logout Button (same style as admin)
+            ElevatedButton.icon(
+              onPressed: _logout,
+              icon: const Icon(Icons.logout, color: Colors.white),
+              label: const Text(
+                "Logout",
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFB11116),
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-            ],
-          ),
-          const CircleAvatar(
-            radius: 24,
-            backgroundColor: Color(0xFFB11116),
-            child: Icon(Icons.person, color: Colors.white),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F8),
-      body: Stack(
-        children: [
-          // 🔹 Sidebar
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              return Transform.translate(
-                offset: Offset(_sidebarTranslate.value, 0),
-                child: Material(
-                  elevation: 12,
-                  color: const Color(0xFFB11116),
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/staffDashboard',
+          (route) => false,
+        );
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFFF8F8),
+        body: Stack(
+          children: [
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return Transform.translate(
+                  offset: Offset(_contentTranslate.value, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 18),
+                      Expanded(child: _buildProfileCard()),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            // Overlay to close sidebar
+            IgnorePointer(
+              ignoring: !_isOpen,
+              child: AnimatedOpacity(
+                opacity: _isOpen ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: GestureDetector(
+                  onTap: _toggleSidebar,
+                  child: Container(color: Colors.black26),
+                ),
+              ),
+            ),
+
+            // Sidebar
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return Transform.translate(
+                  offset: Offset(_sidebarTranslate.value, 0),
                   child: SizedBox(
                     width: sidebarWidth,
                     height: MediaQuery.of(context).size.height,
@@ -130,90 +274,11 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                       onNavigate: _handleSidebarNavigation,
                     ),
                   ),
-                ),
-              );
-            },
-          ),
-
-          // 🔹 Page Content
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              return Transform.translate(
-                offset: Offset(_contentTranslate.value, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(),
-                    Expanded(
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(24),
-                          width: 400,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black12, blurRadius: 8),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              CircleAvatar(
-                                radius: 40,
-                                backgroundColor: Color(0xFFB11116),
-                                child: Icon(Icons.person,
-                                    size: 40, color: Colors.white),
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                "Staff Profile",
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFB11116),
-                                ),
-                              ),
-                              SizedBox(height: 12),
-                              ListTile(
-                                leading: Icon(Icons.email_outlined),
-                                title: Text("Email"),
-                                subtitle: Text("staff@vvcoe.com"),
-                              ),
-                              ListTile(
-                                leading: Icon(Icons.school_outlined),
-                                title: Text("Department"),
-                                subtitle:
-                                    Text("Computer Science and Engineering"),
-                              ),
-                              ListTile(
-                                leading: Icon(Icons.badge_outlined),
-                                title: Text("Role"),
-                                subtitle: Text("Faculty"),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          // 🔹 Overlay for closing
-          if (_isOpen)
-            GestureDetector(
-              onTap: _toggleSidebar,
-              child: Container(
-                color: Colors.black26,
-                width: double.infinity,
-                height: double.infinity,
-              ),
+                );
+              },
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

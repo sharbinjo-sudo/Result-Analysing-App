@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import '../../widgets/sidebar.dart';
 
 class UploadResultsScreen extends StatefulWidget {
   const UploadResultsScreen({super.key});
@@ -10,48 +11,90 @@ class UploadResultsScreen extends StatefulWidget {
 }
 
 class _UploadResultsScreenState extends State<UploadResultsScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+    with TickerProviderStateMixin { // ✅ FIXED HERE (allows multiple tickers)
+  static const double sidebarWidth = 240;
+  late final AnimationController _controller;
+  late final Animation<double> _sidebarTranslate;
+  late final Animation<double> _contentTranslate;
+  bool _isOpen = false;
+  bool _navigating = false;
 
+  late TabController _tabController;
   File? selectedFile;
   String? fileType;
-
-  // For manual entry
   final List<Map<String, dynamic>> entries = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _controller =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _sidebarTranslate = Tween<double>(begin: -sidebarWidth, end: 0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
+    );
+    _contentTranslate = Tween<double>(begin: 0, end: sidebarWidth).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
+    );
+    _tabController = TabController(length: 2, vsync: this); // ✅ works fine now
+  }
+
+  void _toggleSidebar() {
+    if (_navigating) return;
+    setState(() {
+      _isOpen = !_isOpen;
+      _isOpen ? _controller.forward() : _controller.reverse();
+    });
+  }
+
+  Future<void> _handleSidebarNavigation(String route) async {
+    if (_navigating) return;
+    _navigating = true;
+
+    if (ModalRoute.of(context)?.settings.name == route) {
+      await _controller.reverse();
+      setState(() => _isOpen = false);
+      _navigating = false;
+      return;
+    }
+
+    if (mounted) Navigator.pushReplacementNamed(context, route);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) {
+        await _controller.reverse();
+        setState(() => _isOpen = false);
+      }
+      _navigating = false;
+    });
   }
 
   // ----------------------- File Upload -----------------------
   Future<void> pickFile(String type) async {
-  FilePickerResult? result;
+    FilePickerResult? result;
 
-  if (type == "pdf") {
-    result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-    );
-  } else {
-    result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv', 'xlsx'],
-    );
-  }
+    if (type == "pdf") {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+    } else {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv', 'xlsx'],
+      );
+    }
 
-  if (result != null) {
-    final path = result.files.single.path;
-    if (path != null) {
-      setState(() {
-        selectedFile = File(path);
-        fileType = type;
-      });
+    if (result != null) {
+      final path = result.files.single.path;
+      if (path != null) {
+        setState(() {
+          selectedFile = File(path);
+          fileType = type;
+        });
+      }
     }
   }
-}
-
 
   Future<void> uploadFile() async {
     if (selectedFile == null) {
@@ -64,7 +107,8 @@ class _UploadResultsScreenState extends State<UploadResultsScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-            "Uploaded ${fileType?.toUpperCase()} successfully: ${selectedFile!.path.split('/').last}"),
+          "Uploaded ${fileType?.toUpperCase()} successfully: ${selectedFile!.path.split('/').last}",
+        ),
       ),
     );
 
@@ -100,7 +144,6 @@ class _UploadResultsScreenState extends State<UploadResultsScreen>
       return;
     }
 
-    // TODO: connect to FastAPI later
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Saved ${entries.length} manual entries.")),
     );
@@ -111,246 +154,369 @@ class _UploadResultsScreenState extends State<UploadResultsScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Upload / Enter Results"),
-        bottom: TabBar(
+  void dispose() {
+    _controller.dispose();
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  // ✅ Header (same as StaffDashboard)
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.menu_rounded,
+                  color: Color(0xFFB11116), size: 28),
+              onPressed: _toggleSidebar,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              "Upload / Enter Results",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFB11116),
+              ),
+            ),
+            const Spacer(),
+            Material(
+              color: Colors.white,
+              elevation: 2,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/staffDashboard',
+                    (route) => false,
+                  );
+                },
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFB11116),
+                    shape: BoxShape.circle,
+                  ),
+                  child:
+                      const Icon(Icons.dashboard, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ Main Content
+  Widget _buildContent() {
+    return Column(
+      children: [
+        TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          indicatorColor: Colors.white,
+          labelColor: const Color(0xFFB11116),
+          indicatorColor: const Color(0xFFB11116),
           tabs: const [
             Tab(icon: Icon(Icons.upload_file), text: "Upload File"),
             Tab(icon: Icon(Icons.edit_note), text: "Manual Entry"),
           ],
         ),
-      ),
-      backgroundColor: const Color(0xFFFFF8F8),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          // -------------------- Upload Tab --------------------
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Upload Result Files",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFB11116),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                Row(
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              // -------------------- Upload Tab --------------------
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: () => pickFile("csv"),
-                      icon: const Icon(Icons.upload_file, color: Colors.white),
-                      label: const Text("Upload CSV / Excel"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFB11116),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
+                    const Text(
+                      "Upload Result Files",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFB11116),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      onPressed: () => pickFile("pdf"),
-                      icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
-                      label: const Text("Upload PDF"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFB11116),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () => pickFile("csv"),
+                          icon: const Icon(Icons.upload_file, color: Colors.white),
+                          label: const Text("Upload CSV / Excel"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFB11116),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 14),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: () => pickFile("pdf"),
+                          icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+                          label: const Text("Upload PDF"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFB11116),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    if (selectedFile != null)
+                      Card(
+                        color: Colors.white,
+                        elevation: 3,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        child: ListTile(
+                          leading: Icon(
+                            fileType == "pdf"
+                                ? Icons.picture_as_pdf
+                                : Icons.table_chart,
+                            color: fileType == "pdf"
+                                ? Colors.red
+                                : const Color(0xFFB11116),
+                            size: 36,
+                          ),
+                          title: Text(selectedFile!.path.split('/').last),
+                          subtitle: Text(fileType == "pdf"
+                              ? "PDF Document"
+                              : "CSV/Excel Data File"),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.grey),
+                            onPressed: () {
+                              setState(() {
+                                selectedFile = null;
+                                fileType = null;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 24),
+                    Center(
+                      child: ElevatedButton.icon(
+                        onPressed: uploadFile,
+                        icon: const Icon(Icons.cloud_upload, color: Colors.white),
+                        label: const Text(
+                          "Upload",
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFB11116),
+                          minimumSize: const Size(160, 50),
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 32),
+              ),
 
-                if (selectedFile != null)
-                  Card(
-                    color: Colors.white,
-                    elevation: 3,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    child: ListTile(
-                      leading: Icon(
-                        fileType == "pdf"
-                            ? Icons.picture_as_pdf
-                            : Icons.table_chart,
-                        color: fileType == "pdf"
-                            ? Colors.red
-                            : const Color(0xFFB11116),
-                        size: 36,
+              // -------------------- Manual Entry Tab --------------------
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Enter Results Manually",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFB11116),
                       ),
-                      title: Text(selectedFile!.path.split('/').last),
-                      subtitle: Text(fileType == "pdf"
-                          ? "PDF Document"
-                          : "CSV/Excel Data File"),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.close, color: Colors.grey),
-                        onPressed: () {
-                          setState(() {
-                            selectedFile = null;
-                            fileType = null;
-                          });
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: entries.length,
+                        itemBuilder: (context, index) {
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            elevation: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          decoration: const InputDecoration(
+                                            labelText: "Register No",
+                                            border: OutlineInputBorder(),
+                                          ),
+                                          onChanged: (v) =>
+                                              entries[index]["regNo"] = v,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: TextField(
+                                          decoration: const InputDecoration(
+                                            labelText: "Subject",
+                                            border: OutlineInputBorder(),
+                                          ),
+                                          onChanged: (v) =>
+                                              entries[index]["subject"] = v,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          decoration: const InputDecoration(
+                                            labelText: "Marks",
+                                            border: OutlineInputBorder(),
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                          onChanged: (v) =>
+                                              entries[index]["marks"] = v,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: TextField(
+                                          decoration: const InputDecoration(
+                                            labelText: "Grade",
+                                            border: OutlineInputBorder(),
+                                          ),
+                                          onChanged: (v) =>
+                                              entries[index]["grade"] = v,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete,
+                                            color: Colors.red),
+                                        onPressed: () => removeEntry(index),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
                         },
                       ),
                     ),
-                  ),
-                const SizedBox(height: 24),
-
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: uploadFile,
-                    icon: const Icon(Icons.cloud_upload, color: Colors.white),
-                    label: const Text(
-                      "Upload",
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFB11116),
-                      minimumSize: const Size(160, 50),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // -------------------- Manual Entry Tab --------------------
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Enter Results Manually",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFB11116),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: entries.length,
-                    itemBuilder: (context, index) {
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        elevation: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      decoration: const InputDecoration(
-                                        labelText: "Register No",
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      onChanged: (v) =>
-                                          entries[index]["regNo"] = v,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: TextField(
-                                      decoration: const InputDecoration(
-                                        labelText: "Subject",
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      onChanged: (v) =>
-                                          entries[index]["subject"] = v,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      decoration: const InputDecoration(
-                                        labelText: "Marks",
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      keyboardType: TextInputType.number,
-                                      onChanged: (v) =>
-                                          entries[index]["marks"] = v,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: TextField(
-                                      decoration: const InputDecoration(
-                                        labelText: "Grade",
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      onChanged: (v) =>
-                                          entries[index]["grade"] = v,
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete,
-                                        color: Colors.red),
-                                    onPressed: () => removeEntry(index),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                    Center(
+                      child: ElevatedButton.icon(
+                        onPressed: addEntry,
+                        icon: const Icon(Icons.add, color: Colors.white),
+                        label: const Text("Add Entry",
+                            style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFB11116),
+                          minimumSize: const Size(180, 48),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: ElevatedButton.icon(
+                        onPressed: saveEntries,
+                        icon: const Icon(Icons.save, color: Colors.white),
+                        label: const Text("Save All Entries",
+                            style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFB11116),
+                          minimumSize: const Size(200, 50),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-
-                // ➕ Add Entry Button
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: addEntry,
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    label: const Text(
-                      "Add Entry",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFB11116),
-                      minimumSize: const Size(180, 48),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // 💾 Save Button
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: saveEntries,
-                    icon: const Icon(Icons.save, color: Colors.white),
-                    label: const Text(
-                      "Save All Entries",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFB11116),
-                      minimumSize: const Size(200, 50),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/staffDashboard',
+          (route) => false,
+        );
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFFF8F8),
+        body: Stack(
+          children: [
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return Transform.translate(
+                  offset: Offset(_contentTranslate.value, 0),
+                  child: Column(
+                    children: [
+                      _buildHeader(),
+                      Expanded(child: _buildContent()),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            // Overlay
+            IgnorePointer(
+              ignoring: !_isOpen,
+              child: AnimatedOpacity(
+                opacity: _isOpen ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: GestureDetector(
+                  onTap: _toggleSidebar,
+                  child: Container(color: Colors.black26),
+                ),
+              ),
+            ),
+
+            // Sidebar
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return Transform.translate(
+                  offset: Offset(_sidebarTranslate.value, 0),
+                  child: SizedBox(
+                    width: sidebarWidth,
+                    height: MediaQuery.of(context).size.height,
+                    child: Sidebar(
+                      role: "staff",
+                      onNavigate: _handleSidebarNavigation,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

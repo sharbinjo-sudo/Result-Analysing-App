@@ -65,18 +65,14 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     });
   }
 
-  // ✅ Instant navigation (one-click) and close sidebar after navigation settles
   Future<void> _handleSidebarNavigation(String route) async {
     if (_navigating) return;
     _navigating = true;
 
     final current = ModalRoute.of(context)?.settings.name;
     if (current == route) {
-      // if already on same route just close sidebar
-      try {
-        await _controller.reverse();
-      } catch (_) {}
-      if (mounted) setState(() => _isOpen = false);
+      await _controller.reverse();
+      setState(() => _isOpen = false);
       _navigating = false;
       return;
     }
@@ -87,17 +83,12 @@ class _UserManagementScreenState extends State<UserManagementScreen>
       Navigator.pushReplacementNamed(context, route);
     }
 
-    // close sidebar after short delay to let new route settle
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.delayed(const Duration(milliseconds: 300));
-      if (!mounted) {
-        _navigating = false;
-        return;
-      }
-      try {
+      if (mounted) {
         await _controller.reverse();
-      } catch (_) {}
-      if (mounted) setState(() => _isOpen = false);
+        setState(() => _isOpen = false);
+      }
       _navigating = false;
     });
   }
@@ -114,7 +105,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
     super.dispose();
   }
 
-  // ---------- Boxed/card-style header (matches Notices/AdminDashboard) ----------
+  // ✅ Unified header (matches AdminDashboard & AdminProfile)
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -130,30 +121,24 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         ),
         child: Row(
           children: [
-            // left: menu + title
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.menu_rounded,
-                      color: Color(0xFFB11116), size: 28),
-                  onPressed: _toggleSidebar,
-                  tooltip: 'Menu',
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  "User Management",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFB11116),
-                  ),
-                ),
-              ],
+            IconButton(
+              icon: const Icon(Icons.menu_rounded,
+                  color: Color(0xFFB11116), size: 28),
+              onPressed: _toggleSidebar,
+              tooltip: 'Menu',
             ),
-
+            const SizedBox(width: 8),
+            const Text(
+              "User Management",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFB11116),
+              ),
+            ),
             const Spacer(),
 
-            // right: avatar-like circular control
+            // ✅ Dashboard icon (clickable)
             Material(
               color: Colors.white,
               elevation: 2,
@@ -161,7 +146,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () {
-                  // keep empty for now (profile/notifications can go here)
+                  Navigator.pushReplacementNamed(context, '/adminDashboard');
                 },
                 child: Container(
                   width: 44,
@@ -170,7 +155,11 @@ class _UserManagementScreenState extends State<UserManagementScreen>
                     color: Color(0xFFB11116),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.dashboard,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
               ),
             ),
@@ -201,7 +190,6 @@ class _UserManagementScreenState extends State<UserManagementScreen>
         backgroundColor: const Color(0xFFFFF8F8),
         body: Stack(
           children: [
-            // ✅ Main content
             AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
@@ -316,7 +304,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               },
             ),
 
-            // ✅ Overlay (fade + close)
+            // Overlay
             IgnorePointer(
               ignoring: !_isOpen,
               child: AnimatedOpacity(
@@ -329,7 +317,7 @@ class _UserManagementScreenState extends State<UserManagementScreen>
               ),
             ),
 
-            // ✅ Sidebar layer
+            // Sidebar
             AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {

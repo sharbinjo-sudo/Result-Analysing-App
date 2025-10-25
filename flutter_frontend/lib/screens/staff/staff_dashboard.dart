@@ -20,8 +20,10 @@ class _StaffDashboardState extends State<StaffDashboard>
   @override
   void initState() {
     super.initState();
-    _controller =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
 
     _sidebarTranslate = Tween<double>(begin: -sidebarWidth, end: 0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
@@ -40,12 +42,10 @@ class _StaffDashboardState extends State<StaffDashboard>
     });
   }
 
-  // ✅ Single-click navigation that auto-closes AFTER redirect
   Future<void> _handleSidebarNavigation(String route) async {
     if (_navigating) return;
     _navigating = true;
 
-    // Prevent redundant route reload
     if (ModalRoute.of(context)?.settings.name == route) {
       await _controller.reverse();
       setState(() => _isOpen = false);
@@ -53,12 +53,10 @@ class _StaffDashboardState extends State<StaffDashboard>
       return;
     }
 
-    // Navigate immediately
     if (mounted) {
       Navigator.pushReplacementNamed(context, route);
     }
 
-    // Sidebar closes after page transition
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.delayed(const Duration(milliseconds: 300));
       if (mounted) {
@@ -75,46 +73,70 @@ class _StaffDashboardState extends State<StaffDashboard>
     super.dispose();
   }
 
+  // ✅ Header identical to AdminDashboard (profile button now navigates)
   Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(
-                  Icons.menu_rounded,
-                  color: Color(0xFFB11116),
-                  size: 28,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Left: Menu + Title
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.menu_rounded,
+                    color: Color(0xFFB11116),
+                    size: 28,
+                  ),
+                  onPressed: _toggleSidebar,
+                  tooltip: 'Menu',
                 ),
-                onPressed: _toggleSidebar,
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                "Welcome, Staff 👋",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFB11116),
+                const SizedBox(width: 8),
+                const Text(
+                  "Welcome, Staff 👋",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFB11116),
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+
+            // ✅ Profile button → Navigates to /staffProfile
+            Material(
+              color: Colors.white,
+              elevation: 2,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () {
+                  Navigator.pushReplacementNamed(context, '/staffProfile');
+                },
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFB11116),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.person, color: Colors.white, size: 20),
                 ),
               ),
-            ],
-          ),
-          const CircleAvatar(
-            radius: 24,
-            backgroundColor: Color(0xFFB11116),
-            child: Icon(Icons.person, color: Colors.white),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -125,7 +147,7 @@ class _StaffDashboardState extends State<StaffDashboard>
       backgroundColor: const Color(0xFFFFF8F8),
       body: Stack(
         children: [
-          // ✅ MAIN CONTENT (at back)
+          // ✅ MAIN CONTENT
           AnimatedBuilder(
             animation: _controller,
             builder: (context, _) {
@@ -135,22 +157,18 @@ class _StaffDashboardState extends State<StaffDashboard>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeader(),
+                    const SizedBox(height: 18),
                     Expanded(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
                               "Manage class performance, upload results, and monitor student progress.",
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.black54,
-                              ),
+                              style: TextStyle(fontSize: 16, color: Colors.black54),
                             ),
                             const SizedBox(height: 30),
-
-                            // ✅ Dashboard Cards
                             Wrap(
                               spacing: 20,
                               runSpacing: 20,
@@ -207,7 +225,7 @@ class _StaffDashboardState extends State<StaffDashboard>
             },
           ),
 
-          // ✅ OVERLAY (middle layer)
+          // ✅ OVERLAY
           IgnorePointer(
             ignoring: !_isOpen,
             child: AnimatedOpacity(
@@ -220,7 +238,7 @@ class _StaffDashboardState extends State<StaffDashboard>
             ),
           ),
 
-          // ✅ SIDEBAR (topmost — always clickable)
+          // ✅ SIDEBAR
           AnimatedBuilder(
             animation: _controller,
             builder: (context, _) {
@@ -242,7 +260,7 @@ class _StaffDashboardState extends State<StaffDashboard>
     );
   }
 
-  // 🔸 Dashboard Card Widget
+  // 🔹 Dashboard Card Widget
   Widget _buildCard({
     required String title,
     String? description,
@@ -266,7 +284,6 @@ class _StaffDashboardState extends State<StaffDashboard>
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: color, size: 40),
@@ -281,18 +298,17 @@ class _StaffDashboardState extends State<StaffDashboard>
               ),
             ),
             if (description != null) ...[
-  const SizedBox(height: 6),
-  Text(
-    description, // ✅ removed unnecessary !
-    textAlign: TextAlign.center,
-    style: const TextStyle(
-      fontSize: 13,
-      color: Colors.black54,
-      height: 1.3,
-    ),
-  ),
-],
-
+              const SizedBox(height: 6),
+              Text(
+                description,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.black54,
+                  height: 1.3,
+                ),
+              ),
+            ],
           ],
         ),
       ),

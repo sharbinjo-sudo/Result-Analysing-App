@@ -40,7 +40,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     });
   }
 
-  // ✅ Single-click navigation with delayed sidebar close
+  // ✅ Sidebar Navigation Handler
   Future<void> _handleSidebarNavigation(String route) async {
     if (_navigating) return;
     _navigating = true;
@@ -52,12 +52,8 @@ class _AdminDashboardState extends State<AdminDashboard>
       return;
     }
 
-    // Navigate first for instant feedback
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, route);
-    }
+    if (mounted) Navigator.pushReplacementNamed(context, route);
 
-    // Close sidebar after transition
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.delayed(const Duration(milliseconds: 300));
       if (mounted) {
@@ -74,9 +70,8 @@ class _AdminDashboardState extends State<AdminDashboard>
     super.dispose();
   }
 
-  // ---------- Header now matches Notices style: boxed card with rounded corners ----------
+  // ✅ Header with clickable Admin Icon
   Widget _buildHeader() {
-    // We add a horizontal margin so the header looks like a card inside the page (like Notices).
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Container(
@@ -91,7 +86,7 @@ class _AdminDashboardState extends State<AdminDashboard>
         ),
         child: Row(
           children: [
-            // Left: menu + title
+            // Left: Menu + Title
             Row(
               children: [
                 IconButton(
@@ -115,10 +110,9 @@ class _AdminDashboardState extends State<AdminDashboard>
               ],
             ),
 
-            // spacer
             const Spacer(),
 
-            // Right: avatar-like circular button (styled to match Notices' right-side control)
+            // ✅ Right: clickable Admin Icon (redirects to profile)
             Material(
               color: Colors.white,
               elevation: 2,
@@ -126,7 +120,7 @@ class _AdminDashboardState extends State<AdminDashboard>
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () {
-                  // keep empty for now (you can put profile/notifications here)
+                  Navigator.pushNamed(context, '/adminProfile');
                 },
                 child: Container(
                   width: 44,
@@ -135,7 +129,11 @@ class _AdminDashboardState extends State<AdminDashboard>
                     color: Color(0xFFB11116),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.admin_panel_settings,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -161,7 +159,6 @@ class _AdminDashboardState extends State<AdminDashboard>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeader(),
-                    // Add a small gap under the header to visually match Notices layout
                     const SizedBox(height: 18),
                     Expanded(
                       child: SingleChildScrollView(
@@ -227,7 +224,7 @@ class _AdminDashboardState extends State<AdminDashboard>
             ),
           ),
 
-          // ✅ SIDEBAR (top layer)
+          // ✅ SIDEBAR
           AnimatedBuilder(
             animation: _controller,
             builder: (context, _) {
