@@ -112,7 +112,6 @@ ENV/
 .venv/
 Scripts/
 bin/
-Lib/
 Include/
 
 # ========================
