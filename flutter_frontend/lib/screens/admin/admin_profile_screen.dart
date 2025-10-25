@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/sidebar.dart';
+import '../../utils/storage.dart';
 
 class AdminProfileScreen extends StatefulWidget {
   const AdminProfileScreen({super.key});
@@ -20,8 +21,10 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
   @override
   void initState() {
     super.initState();
-    _controller =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
 
     _sidebarTranslate = Tween<double>(begin: -sidebarWidth, end: 0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
@@ -40,45 +43,34 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
     });
   }
 
-  // Single-click, instant navigation (same pattern as AdminDashboard)
   Future<void> _handleSidebarNavigation(String route) async {
     if (_navigating) return;
     _navigating = true;
 
     final current = ModalRoute.of(context)?.settings.name;
     if (current == route) {
-      // already on same route: just close sidebar
-      try {
-        await _controller.reverse();
-      } catch (_) {}
-      if (mounted) setState(() => _isOpen = false);
+      await _controller.reverse();
+      setState(() => _isOpen = false);
       _navigating = false;
       return;
     }
 
-    // immediate navigation
     if (route == '/login') {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
     } else {
       Navigator.pushReplacementNamed(context, route);
     }
 
-    // close sidebar after navigation settles
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.delayed(const Duration(milliseconds: 300));
-      if (!mounted) {
-        _navigating = false;
-        return;
-      }
-      try {
+      if (mounted) {
         await _controller.reverse();
-      } catch (_) {}
-      if (mounted) setState(() => _isOpen = false);
+        setState(() => _isOpen = false);
+      }
       _navigating = false;
     });
   }
 
-  // Back button goes to admin dashboard
   Future<bool> _onWillPop() async {
     Navigator.pushReplacementNamed(context, '/adminDashboard');
     return false;
@@ -90,7 +82,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
     super.dispose();
   }
 
-  // ---------- Boxed/card-style header (matches Notices/AdminDashboard) ----------
+  // ✅ Header with Dashboard Icon
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -106,30 +98,23 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
         ),
         child: Row(
           children: [
-            // left: menu + title
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.menu_rounded,
-                      color: Color(0xFFB11116), size: 28),
-                  onPressed: _toggleSidebar,
-                  tooltip: 'Menu',
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  "Admin Profile",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFB11116),
-                  ),
-                ),
-              ],
+            IconButton(
+              icon: const Icon(Icons.menu_rounded,
+                  color: Color(0xFFB11116), size: 28),
+              onPressed: _toggleSidebar,
+              tooltip: 'Menu',
             ),
-
+            const SizedBox(width: 8),
+            const Text(
+              "Admin Profile",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFB11116),
+              ),
+            ),
             const Spacer(),
-
-            // right: avatar-like circular control
+            // ✅ Dashboard Icon
             Material(
               color: Colors.white,
               elevation: 2,
@@ -137,7 +122,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: () {
-                  // keep empty for now (profile/notifications can go here)
+                  Navigator.pushReplacementNamed(context, '/adminDashboard');
                 },
                 child: Container(
                   width: 44,
@@ -146,7 +131,8 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
                     color: Color(0xFFB11116),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 20),
+                  child: const Icon(Icons.dashboard,
+                      color: Colors.white, size: 22),
                 ),
               ),
             ),
@@ -156,7 +142,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
     );
   }
 
-  // Profile card unchanged
+  // ✅ Profile Card with Name + Logout
   Widget _buildProfileCard() {
     return Center(
       child: Container(
@@ -171,14 +157,14 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            CircleAvatar(
+          children: [
+            const CircleAvatar(
               radius: 40,
               backgroundColor: Color(0xFFB11116),
               child: Icon(Icons.person, size: 40, color: Colors.white),
             ),
-            SizedBox(height: 16),
-            Text(
+            const SizedBox(height: 16),
+            const Text(
               "Admin Profile",
               style: TextStyle(
                 fontSize: 22,
@@ -186,21 +172,53 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
                 color: Color(0xFFB11116),
               ),
             ),
-            SizedBox(height: 12),
-            ListTile(
+            const SizedBox(height: 12),
+
+            // ✅ Added Name Field
+            const ListTile(
+              leading: Icon(Icons.person_outline, color: Color(0xFFB11116)),
+              title: Text("Name"),
+              subtitle: Text("N. R. Forename"),
+            ),
+
+            const ListTile(
               leading: Icon(Icons.email_outlined, color: Color(0xFFB11116)),
               title: Text("Email"),
               subtitle: Text("admin@vvcoe.com"),
             ),
-            ListTile(
+            const ListTile(
               leading: Icon(Icons.work_outline, color: Color(0xFFB11116)),
               title: Text("Position"),
               subtitle: Text("System Administrator"),
             ),
-            ListTile(
+            const ListTile(
               leading: Icon(Icons.security_outlined, color: Color(0xFFB11116)),
               title: Text("Privileges"),
               subtitle: Text("Full Access"),
+            ),
+            const SizedBox(height: 28),
+
+            // ✅ Logout Button
+            ElevatedButton.icon(
+              onPressed: () async {
+                await SecureStorage.deleteToken();
+                if (context.mounted) {
+                  Navigator.pushNamedAndRemoveUntil(
+                      context, '/login', (r) => false);
+                }
+              },
+              icon: const Icon(Icons.logout, color: Colors.white),
+              label: const Text(
+                "Logout",
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFB11116),
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
             ),
           ],
         ),
@@ -234,7 +252,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
               },
             ),
 
-            // Overlay (fade + close)
+            // Overlay
             IgnorePointer(
               ignoring: !_isOpen,
               child: AnimatedOpacity(
@@ -247,7 +265,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
               ),
             ),
 
-            // Sidebar (top layer)
+            // Sidebar
             AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {

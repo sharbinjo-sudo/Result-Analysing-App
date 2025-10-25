@@ -66,7 +66,6 @@ class _NoticesScreenState extends State<NoticesScreen>
     super.dispose();
   }
 
-  // Toggle sidebar (guarded when navigation in progress)
   void _toggleSidebar() {
     if (_navigating) return;
     setState(() {
@@ -75,50 +74,38 @@ class _NoticesScreenState extends State<NoticesScreen>
     });
   }
 
-  // Exactly the AdminDashboard pattern:
-  // - single-click: navigate immediately (pushReplacementNamed)
-  // - then close the sidebar animation in a post-frame callback
   Future<void> _handleSidebarNavigation(String route) async {
     if (_navigating) return;
     _navigating = true;
 
     final current = ModalRoute.of(context)?.settings.name;
     if (current == route) {
-      // Already on this route: just close sidebar if open
       if (_isSidebarOpen) {
-        try {
-          await _controller.reverse();
-        } catch (_) {}
+        await _controller.reverse();
         if (mounted) setState(() => _isSidebarOpen = false);
       }
       _navigating = false;
       return;
     }
 
-    // Immediate navigation for instant feedback (single click)
     if (route == '/login') {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
     } else {
       Navigator.pushReplacementNamed(context, route);
     }
 
-    // Close this screen's sidebar after navigation settles (same pattern as AdminDashboard)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // small delay to avoid races on web / route rebuilds
       await Future.delayed(const Duration(milliseconds: 250));
       if (!mounted) {
         _navigating = false;
         return;
       }
-      try {
-        await _controller.reverse();
-      } catch (_) {}
+      await _controller.reverse();
       if (mounted) setState(() => _isSidebarOpen = false);
       _navigating = false;
     });
   }
 
-  // Back navigation -> role dashboard
   Future<bool> _onWillPop() async {
     String dashboardRoute;
     switch (widget.role.toLowerCase()) {
@@ -135,15 +122,12 @@ class _NoticesScreenState extends State<NoticesScreen>
     return false;
   }
 
-  // Web file picker
   void _pickFile() {
     final uploadInput = html.FileUploadInputElement()..accept = '.pdf';
     uploadInput.click();
     uploadInput.onChange.listen((e) {
       final file = uploadInput.files?.first;
-      if (file != null) {
-        setState(() => _selectedFile = file);
-      }
+      if (file != null) setState(() => _selectedFile = file);
     });
   }
 
@@ -221,30 +205,69 @@ class _NoticesScreenState extends State<NoticesScreen>
     );
   }
 
+  // ✅ Updated Header (matches dashboard style)
   Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(children: [
-            IconButton(icon: const Icon(Icons.menu_rounded, color: Color(0xFFB11116), size: 28), onPressed: _toggleSidebar),
-            const SizedBox(width: 10),
-            const Text("College Notices 📢", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFB11116))),
-          ]),
-          if (widget.role.toLowerCase() == "admin")
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFB11116)),
-              onPressed: _openUploadDialog,
-              icon: const Icon(Icons.upload_file),
-              label: const Text("Upload"),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.menu_rounded, color: Color(0xFFB11116), size: 28),
+              onPressed: _toggleSidebar,
             ),
-        ],
+            const SizedBox(width: 8),
+            const Text(
+              "College Notices 📢",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFB11116),
+              ),
+            ),
+            const Spacer(),
+
+            // ✅ Dashboard Icon (adaptive to role)
+            Material(
+              color: Colors.white,
+              elevation: 2,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () {
+                  switch (widget.role.toLowerCase()) {
+                    case "admin":
+                      Navigator.pushReplacementNamed(context, '/adminDashboard');
+                      break;
+                    case "staff":
+                      Navigator.pushReplacementNamed(context, '/staffDashboard');
+                      break;
+                    default:
+                      Navigator.pushReplacementNamed(context, '/studentDashboard');
+                  }
+                },
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFB11116),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.dashboard, color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -257,9 +280,20 @@ class _NoticesScreenState extends State<NoticesScreen>
       onWillPop: _onWillPop,
       child: Scaffold(
         backgroundColor: const Color(0xFFFFF8F8),
+
+        // ✅ Floating Upload Button (only for Admin)
+        floatingActionButton: isAdmin
+            ? FloatingActionButton.extended(
+                onPressed: _openUploadDialog,
+                backgroundColor: const Color(0xFFB11116),
+                icon: const Icon(Icons.upload_file, color: Colors.white),
+                label: const Text("Upload Notice",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              )
+            : null,
+
         body: Stack(
           children: [
-            // 1) Main content (under the overlay & sidebar)
             AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
@@ -273,12 +307,16 @@ class _NoticesScreenState extends State<NoticesScreen>
                         _buildHeader(),
                         const SizedBox(height: 20),
                         Text(
-                          isAdmin ? "Manage and upload official circulars and announcements." : "View official circulars, updates, and important information.",
+                          isAdmin
+                              ? "Manage and upload official circulars and announcements."
+                              : "View official circulars, updates, and important information.",
                           style: const TextStyle(fontSize: 16, color: Colors.black54),
                         ),
                         const SizedBox(height: 24),
                         if (notices.isEmpty)
-                          const Center(child: Text("No notices available.", style: TextStyle(color: Colors.black54)))
+                          const Center(
+                              child: Text("No notices available.",
+                                  style: TextStyle(color: Colors.black54)))
                         else
                           Wrap(
                             spacing: 20,
@@ -290,11 +328,14 @@ class _NoticesScreenState extends State<NoticesScreen>
                                 file: n["file"]!,
                                 date: n["date"]!,
                                 onDownload: () {
-                                  html.AnchorElement(href: "#")..setAttribute("download", n["file"]!)..click();
+                                  html.AnchorElement(href: "#")
+                                    ..setAttribute("download", n["file"]!)
+                                    ..click();
                                 },
                               );
                             }).toList(),
                           ),
+                        const SizedBox(height: 80), // extra bottom padding for FAB
                       ],
                     ),
                   ),
@@ -302,7 +343,7 @@ class _NoticesScreenState extends State<NoticesScreen>
               },
             ),
 
-            // 2) Overlay to dim content and allow tapping to close — placed BEFORE sidebar so sidebar remains on top.
+            // Overlay
             IgnorePointer(
               ignoring: !_isSidebarOpen,
               child: AnimatedOpacity(
@@ -315,7 +356,7 @@ class _NoticesScreenState extends State<NoticesScreen>
               ),
             ),
 
-            // 3) Sidebar (top layer so it receives taps)
+            // Sidebar
             AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
@@ -342,13 +383,13 @@ class _NoticeCard extends StatelessWidget {
   final VoidCallback? onDownload;
 
   const _NoticeCard({
-    Key? key, // ✅ explicitly declare key
+    Key? key,
     required this.title,
     required this.desc,
     required this.file,
     required this.date,
     this.onDownload,
-  }) : super(key: key); // ✅ forward key properly
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -359,21 +400,16 @@ class _NoticeCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFB11116).withOpacity(0.3)),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6),
-        ],
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFB11116),
-            ),
-          ),
+          Text(title,
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFB11116))),
           const SizedBox(height: 8),
           Text(desc, style: const TextStyle(color: Colors.black87)),
           const SizedBox(height: 8),
@@ -393,4 +429,3 @@ class _NoticeCard extends StatelessWidget {
     );
   }
 }
-
