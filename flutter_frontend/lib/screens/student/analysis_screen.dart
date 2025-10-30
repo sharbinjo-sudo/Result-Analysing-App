@@ -1,3 +1,4 @@
+// lib/screens/student/analysis_screen.dart
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../widgets/sidebar.dart';
@@ -18,11 +19,24 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   bool _isOpen = false;
   bool _navigating = false;
 
+  final List<FlSpot> _cgpaSpots = const [
+    FlSpot(0, 7.8),
+    FlSpot(1, 8.1),
+    FlSpot(2, 8.3),
+    FlSpot(3, 8.6),
+  ];
+  final List<String> _semLabels = const ["S1", "S2", "S3", "S4"];
+
+  final List<int> _subjectMarks = [85, 92, 78, 88, 95];
+  final List<String> _subjectLabels = ["Maths", "DS", "OOPS", "DBMS", "CN"];
+
   @override
   void initState() {
     super.initState();
-    _controller =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
     _sidebarTranslate = Tween<double>(begin: -sidebarWidth, end: 0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
     );
@@ -43,9 +57,10 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     if (_navigating) return;
     _navigating = true;
 
-    if (ModalRoute.of(context)?.settings.name == route) {
+    final current = ModalRoute.of(context)?.settings.name;
+    if (current == route) {
       await _controller.reverse();
-      setState(() => _isOpen = false);
+      if (mounted) setState(() => _isOpen = false);
       _navigating = false;
       return;
     }
@@ -53,7 +68,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     if (mounted) Navigator.pushReplacementNamed(context, route);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 250));
       if (mounted) {
         await _controller.reverse();
         setState(() => _isOpen = false);
@@ -68,7 +83,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     super.dispose();
   }
 
-  // ✅ Modern Header (same as StudentDashboard)
+  // 🌟 Keep same header style for consistency
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -76,55 +91,60 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFFFFF), Color(0xFFFFF2F2)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3))
           ],
         ),
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(
-                Icons.menu_rounded,
-                color: Color(0xFFB11116),
-                size: 28,
-              ),
+              icon: const Icon(Icons.menu_rounded,
+                  color: Color(0xFFB11116), size: 28),
               onPressed: _toggleSidebar,
             ),
             const SizedBox(width: 8),
-            const Text(
-              "Performance Analysis",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFB11116),
+            const Expanded(
+              child: Text(
+                "Performance Analysis",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFB11116),
+                ),
               ),
             ),
-            const Spacer(),
-            Material(
-              color: Colors.white,
-              elevation: 2,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/studentDashboard',
-                    (route) => false,
-                  );
-                },
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFB11116),
-                    shape: BoxShape.circle,
-                  ),
-                  child:
-                      const Icon(Icons.dashboard, color: Colors.white, size: 20),
+            InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/studentDashboard',
+                  (route) => false,
+                );
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 46,
+                height: 46,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFB11116),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x33B11116),
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
                 ),
+                child: const Icon(Icons.dashboard, color: Colors.white, size: 22),
               ),
             ),
           ],
@@ -133,167 +153,288 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     );
   }
 
-  // ✅ Content section (charts + titles)
+  // 📊 Charts + layout
   Widget _buildContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "CGPA Trend by Semester",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFB11116),
-            ),
-          ),
-          const SizedBox(height: 16),
+    return LayoutBuilder(builder: (context, constraints) {
+      final bool isMobile = constraints.maxWidth < 600;
+      final double containerMaxWidth = isMobile ? constraints.maxWidth : 820;
+      final double lineChartHeight = isMobile ? 220 : 260;
+      final double barChartHeight = isMobile ? 220 : 300;
 
-          // 🔹 Line Chart – CGPA Trend
-          Container(
-            height: 220,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 6),
-              ],
-            ),
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: false),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: true, reservedSize: 30),
+      final List<double> cgpaValues = _cgpaSpots.map((e) => e.y).toList();
+final double minY = cgpaValues.reduce((a, b) => a < b ? a : b);
+final double maxY = cgpaValues.reduce((a, b) => a > b ? a : b) + 0.2;
+
+
+      final int maxBar = _subjectMarks.reduce((a, b) => a > b ? a : b);
+      int barTop = ((maxBar + 24) ~/ 25) * 25;
+      if (barTop < maxBar) barTop += 25;
+      final int barStep = barTop <= 50 ? 10 : 25;
+      final List<int> barTicks = [for (int v = 0; v <= barTop; v += barStep) v];
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: containerMaxWidth),
+            child: Column(
+              crossAxisAlignment:
+                  isMobile ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+              children: [
+                const Text(
+                  "CGPA Trend by Semester",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFB11116),
                   ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, _) {
-                        final semesters = ["S1", "S2", "S3", "S4"];
-                        return Text(
-                          semesters[value.toInt() % semesters.length],
-                          style: const TextStyle(fontSize: 12),
-                        );
-                      },
+                ),
+                const SizedBox(height: 16),
+
+                // ✅ CGPA CHART
+                Container(
+                  height: lineChartHeight,
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                  ),
+                  child: LineChart(
+                    LineChartData(
+                      minX: 0,
+                      maxX: _cgpaSpots.length.toDouble() - 1,
+                      minY: minY,
+                      maxY: maxY,
+                      gridData: const FlGridData(show: false),
+                      borderData: FlBorderData(
+                        show: true,
+                        border: Border.all(color: Colors.grey.shade300, width: 1),
+                      ),
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 40,
+                            getTitlesWidget: (value, meta) {
+                              for (final cgpa in cgpaValues) {
+                                if ((value - cgpa).abs() < 0.05) {
+                                  return Text(
+                                    cgpa.toStringAsFixed(1),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black87,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  );
+                                }
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 30,
+                            interval: 1,
+                            getTitlesWidget: (value, meta) {
+                              if (value % 1 != 0) return const SizedBox.shrink();
+                              final int idx = value.toInt();
+                              if (idx < 0 || idx >= _semLabels.length) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  _semLabels[idx],
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                      ),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: _cgpaSpots,
+                          isCurved: true,
+                          color: const Color(0xFFB11116),
+                          barWidth: 3,
+                          isStrokeCapRound: true,
+                          dotData: FlDotData(show: true),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: const Color(0xFFB11116).withOpacity(0.15),
+                          ),
+                        ),
+                      ],
+                      lineTouchData: LineTouchData(
+                        enabled: true,
+                        touchTooltipData: LineTouchTooltipData(
+                          getTooltipColor: (touchedSpot) => Colors.black87,
+                          tooltipPadding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          fitInsideHorizontally: true,
+                          fitInsideVertically: true,
+                          getTooltipItems: (touchedSpots) {
+                            return touchedSpots.map((spot) {
+                              final cgpa = spot.y.toStringAsFixed(2);
+                              final sem =
+                                  _semLabels[spot.x.toInt().clamp(0, _semLabels.length - 1)];
+                              return LineTooltipItem(
+                                '$sem\nCGPA: $cgpa',
+                                const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              );
+                            }).toList();
+                          },
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                borderData: FlBorderData(show: true),
-                lineBarsData: [
-                  LineChartBarData(
-                    isCurved: true,
-                    color: const Color(0xFFB11116),
-                    barWidth: 4,
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: const Color(0xFFB11116).withOpacity(0.2),
-                    ),
-                    spots: const [
-                      FlSpot(0, 7.8),
-                      FlSpot(1, 8.1),
-                      FlSpot(2, 8.3),
-                      FlSpot(3, 8.6),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 40),
 
-          const Text(
-            "Subject-wise Marks Comparison",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFB11116),
-            ),
-          ),
-          const SizedBox(height: 16),
+                const SizedBox(height: 36),
 
-          // 🔹 Bar Chart – Subject Scores
-          Container(
-            height: 250,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 6),
-              ],
-            ),
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: true, reservedSize: 30),
+                // 🔥 MARK COMPARISON
+                const Text(
+                  "Last Semester Mark Comparison",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFB11116),
                   ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, _) {
-                        final subjects = ["Maths", "DS", "OOPS", "DBMS", "CN"];
-                        return Text(
-                          subjects[value.toInt() % subjects.length],
-                          style: const TextStyle(fontSize: 12),
-                        );
-                      },
+                ),
+                const SizedBox(height: 16),
+
+                // ✅ BAR CHART
+                Container(
+                  height: barChartHeight,
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                  ),
+                  child: BarChart(
+                    BarChartData(
+                      maxY: barTop.toDouble(),
+                      minY: 0,
+                      gridData: const FlGridData(show: false),
+                      borderData: FlBorderData(show: false),
+                      alignment: BarChartAlignment.spaceAround,
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 44,
+                            getTitlesWidget: (value, meta) {
+                              final nearest = barTicks.firstWhere(
+                                  (t) => (value - t).abs() < 0.5,
+                                  orElse: () => -1);
+                              if (nearest == -1) return const SizedBox();
+                              return Text(
+                                nearest.toString(),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 36,
+                            getTitlesWidget: (value, meta) {
+                              final idx = value.round();
+                              if (idx < 0 || idx >= _subjectLabels.length)
+                                return const SizedBox();
+                              return Text(
+                                _subjectLabels[idx],
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFFB11116),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                      ),
+                      barGroups: List.generate(
+                        _subjectMarks.length,
+                        (i) => BarChartGroupData(
+                          x: i,
+                          barRods: [
+                            BarChartRodData(
+                              toY: _subjectMarks[i].toDouble(),
+                              width: isMobile ? 18 : 22,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(8),
+                                topRight: Radius.circular(8),
+                              ),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFB11116), Color(0xFFFF6A6A)],
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      barTouchData: BarTouchData(
+                        enabled: true,
+                        touchTooltipData: BarTouchTooltipData(
+                          getTooltipColor: (group) => Colors.black87,
+                          tooltipPadding:
+                              const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          tooltipBorderRadius: BorderRadius.circular(6),
+                          fitInsideHorizontally: true,
+                          fitInsideVertically: true,
+                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                            final idx = group.x.toInt();
+                            final subj = _subjectLabels[idx];
+                            final mark = _subjectMarks[idx];
+                            return BarTooltipItem(
+                              '$subj: $mark / 100',
+                              const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                barGroups: [
-                  BarChartGroupData(x: 0, barRods: [
-                    BarChartRodData(
-                      toY: 85,
-                      color: const Color(0xFFB11116),
-                      width: 18,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ]),
-                  BarChartGroupData(x: 1, barRods: [
-                    BarChartRodData(
-                      toY: 92,
-                      color: const Color(0xFFB11116),
-                      width: 18,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ]),
-                  BarChartGroupData(x: 2, barRods: [
-                    BarChartRodData(
-                      toY: 78,
-                      color: const Color(0xFFB11116),
-                      width: 18,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ]),
-                  BarChartGroupData(x: 3, barRods: [
-                    BarChartRodData(
-                      toY: 88,
-                      color: const Color(0xFFB11116),
-                      width: 18,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ]),
-                  BarChartGroupData(x: 4, barRods: [
-                    BarChartRodData(
-                      toY: 95,
-                      color: const Color(0xFFB11116),
-                      width: 18,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ]),
-                ],
-              ),
+              ],
             ),
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    });
   }
 
   @override
@@ -308,10 +449,9 @@ class _AnalysisScreenState extends State<AnalysisScreen>
         return false;
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFFFF8F8),
+        backgroundColor: const Color(0xFFE9F2FF), // ✅ Unified background color
         body: Stack(
           children: [
-            // ✅ Main Content
             AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
@@ -327,8 +467,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                 );
               },
             ),
-
-            // ✅ Overlay (to close sidebar)
             IgnorePointer(
               ignoring: !_isOpen,
               child: AnimatedOpacity(
@@ -340,23 +478,20 @@ class _AnalysisScreenState extends State<AnalysisScreen>
                 ),
               ),
             ),
-
-            // ✅ Sidebar
             AnimatedBuilder(
               animation: _controller,
-              builder: (context, _) {
+              builder: (context, child) {
                 return Transform.translate(
                   offset: Offset(_sidebarTranslate.value, 0),
-                  child: SizedBox(
-                    width: sidebarWidth,
-                    height: MediaQuery.of(context).size.height,
-                    child: Sidebar(
-                      role: "student",
-                      onNavigate: _handleSidebarNavigation,
-                    ),
-                  ),
+                  child: child,
                 );
               },
+              child: SizedBox(
+                width: sidebarWidth,
+                height: MediaQuery.of(context).size.height,
+                child:
+                    Sidebar(role: "student", onNavigate: _handleSidebarNavigation),
+              ),
             ),
           ],
         ),
