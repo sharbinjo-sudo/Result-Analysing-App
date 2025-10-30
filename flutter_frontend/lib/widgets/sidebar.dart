@@ -48,100 +48,140 @@ class Sidebar extends StatelessWidget {
     final menuItems = _getMenuItems();
     final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
 
-    return Container(
-      width: 240,
+    return Material(
       color: const Color(0xFFB11116),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 🔹 Sidebar Header
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: const [
-                Icon(Icons.school_rounded, color: Colors.white, size: 26),
-                SizedBox(width: 10),
-                Text(
-                  "V V College",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const Divider(color: Colors.white38, indent: 16, endIndent: 16),
-
-          // 🔹 Menu Items
-          Expanded(
-            child: ListView.builder(
-              itemCount: menuItems.length,
-              itemBuilder: (context, index) {
-                final item = menuItems[index];
-                final route = item["route"] as String;
-                final isSelected = currentRoute == route;
-
-                return InkWell(
-                  onTap: () {
-                    // avoid reloading same route
-                    if (currentRoute == route) {
-                      return;
-                    }
-
-                    // Prefer parent handler so parent can manage animation/navigation.
-                    if (onNavigate != null) {
-                      onNavigate!(route);
-                    } else {
-                      // fallback: replace to avoid stacking
-                      Navigator.pushReplacementNamed(context, route);
-                    }
-                  },
-                  splashColor: Colors.white10,
-                  hoverColor: Colors.white12,
-                  child: Container(
-                    color: isSelected ? Colors.white.withOpacity(0.15) : null,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: ListTile(
-                        leading: Icon(item["icon"] as IconData, color: Colors.white),
-                        title: Text(
-                          item["title"] as String,
-                          style: const TextStyle(color: Colors.white, fontSize: 15),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 🔹 Sidebar Header
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: const [
+                  Icon(Icons.school_rounded, color: Colors.white, size: 26),
+                  SizedBox(width: 10),
+                  Text(
+                    "V V College",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-
-          const Divider(color: Colors.white38, indent: 16, endIndent: 16),
-
-          // 🔹 Logout
-          InkWell(
-            onTap: () {
-              if (onNavigate != null) {
-                onNavigate!('/login');
-              } else {
-                Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-              }
-            },
-            splashColor: Colors.white10,
-            child: Container(
-              color: currentRoute == '/login' ? Colors.white.withOpacity(0.15) : null,
-              child: const ListTile(
-                leading: Icon(Icons.logout, color: Colors.white),
-                title: Text("Logout", style: TextStyle(color: Colors.white, fontSize: 15)),
-                contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                ],
               ),
             ),
+
+            const Divider(color: Colors.white38, indent: 16, endIndent: 16),
+
+            // 🔹 Menu Items (using ListView.separated for smoother rendering)
+            Expanded(
+              child: ListView.separated(
+                padding: EdgeInsets.zero,
+                itemCount: menuItems.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 2),
+                itemBuilder: (context, index) {
+                  final item = menuItems[index];
+                  final route = item["route"] as String;
+                  final isSelected = currentRoute == route;
+
+                  return _SidebarItem(
+                    icon: item["icon"] as IconData,
+                    title: item["title"] as String,
+                    isSelected: isSelected,
+                    onTap: () {
+                      if (currentRoute == route) return;
+                      if (onNavigate != null) {
+                        onNavigate!(route);
+                      } else {
+                        Navigator.pushReplacementNamed(context, route);
+                      }
+                    },
+                  );
+                },
+              ),
+            ),
+
+            const Divider(color: Colors.white38, indent: 16, endIndent: 16),
+
+            // 🔹 Logout Button (exact confirmation dialog as in StaffProfileScreen)
+            _SidebarItem(
+              icon: Icons.logout,
+              title: "Logout",
+              isSelected: currentRoute == '/login',
+              onTap: () async {
+                final confirmLogout = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text("Confirm Logout"),
+                    content: const Text("Are you sure you want to logout from your account?"),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text("Cancel"),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFB11116),
+                        ),
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text("Logout"),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirmLogout == true) {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/login',
+                    (route) => false,
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ✅ Extracted Sidebar Item Widget (reduces rebuild cost & vibration)
+class _SidebarItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SidebarItem({
+    required this.icon,
+    required this.title,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      splashColor: Colors.white10,
+      hoverColor: Colors.white12,
+      child: Container(
+        color: isSelected ? Colors.white.withOpacity(0.15) : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: ListTile(
+            dense: true,
+            leading: Icon(icon, color: Colors.white),
+            title: Text(
+              title,
+              style: const TextStyle(color: Colors.white, fontSize: 15),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -18,12 +18,20 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
   bool _isOpen = false;
   bool _navigating = false;
 
+  final Map<String, String> adminData = const {
+    "name": "N. R. Forename",
+    "email": "admin@vvcoe.com",
+    "position": "System Administrator",
+    "privileges": "Full Access",
+    "role": "Admin",
+  };
+
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
     );
 
     _sidebarTranslate = Tween<double>(begin: -sidebarWidth, end: 0).animate(
@@ -47,22 +55,17 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
     if (_navigating) return;
     _navigating = true;
 
-    final current = ModalRoute.of(context)?.settings.name;
-    if (current == route) {
+    if (ModalRoute.of(context)?.settings.name == route) {
       await _controller.reverse();
       setState(() => _isOpen = false);
       _navigating = false;
       return;
     }
 
-    if (route == '/login') {
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
-    } else {
-      Navigator.pushReplacementNamed(context, route);
-    }
+    if (mounted) Navigator.pushReplacementNamed(context, route);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 250));
       if (mounted) {
         await _controller.reverse();
         setState(() => _isOpen = false);
@@ -71,8 +74,43 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
     });
   }
 
+  Future<void> _logout() async {
+    final confirmLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Confirm Logout"),
+        content:
+            const Text("Are you sure you want to logout from your account?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFB11116),
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Logout"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmLogout == true && mounted) {
+      await SecureStorage.deleteToken();
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      }
+    }
+  }
+
   Future<bool> _onWillPop() async {
-    Navigator.pushReplacementNamed(context, '/adminDashboard');
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/adminDashboard',
+      (route) => false,
+    );
     return false;
   }
 
@@ -82,16 +120,25 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
     super.dispose();
   }
 
-  // ✅ Header with Dashboard Icon
-  Widget _buildHeader() {
+  /// ✅ Unified gradient header
+  Widget _buildHeader(BoxConstraints constraints) {
+    final bool isMobile = constraints.maxWidth < 600;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: EdgeInsets.fromLTRB(20, isMobile ? 12 : 16, 20, 0),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 20,
+          vertical: 14,
+        ),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFFFFF), Color(0xFFFFF2F2)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(10),
           boxShadow: const [
             BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
           ],
@@ -104,36 +151,46 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
               onPressed: _toggleSidebar,
               tooltip: 'Menu',
             ),
-            const SizedBox(width: 8),
-            const Text(
-              "Admin Profile",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFB11116),
+            Expanded(
+              child: Center(
+                child: Text(
+                  "Admin Profile",
+                  textAlign: TextAlign.center,
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFB11116),
+                    letterSpacing: 0.3,
+                  ),
+                ),
               ),
             ),
-            const Spacer(),
-            // ✅ Dashboard Icon
-            Material(
-              color: Colors.white,
-              elevation: 2,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () {
-                  Navigator.pushReplacementNamed(context, '/adminDashboard');
-                },
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFB11116),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.dashboard,
-                      color: Colors.white, size: 22),
+            InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/adminDashboard',
+                  (route) => false,
+                );
+              },
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFB11116),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                        color: Color(0x33B11116),
+                        blurRadius: 8,
+                        offset: Offset(0, 3))
+                  ],
                 ),
+                child:
+                    const Icon(Icons.dashboard, color: Colors.white, size: 22),
               ),
             ),
           ],
@@ -142,17 +199,27 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
     );
   }
 
-  // ✅ Profile Card with Name + Logout
-  Widget _buildProfileCard() {
+  /// ✅ Responsive profile card
+  Widget _buildProfileCard(BoxConstraints constraints) {
+    final bool isMobile = constraints.maxWidth < 600;
+    final double cardWidth = isMobile
+        ? constraints.maxWidth - 32
+        : (constraints.maxWidth * 0.9).clamp(360, 420);
+
     return Center(
       child: Container(
-        padding: const EdgeInsets.all(24),
-        width: 400,
+        margin: EdgeInsets.only(
+          top: isMobile ? 14 : 22,
+          left: 20,
+          right: 20,
+        ),
+        padding: EdgeInsets.all(isMobile ? 20 : 24),
+        width: cardWidth,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 8),
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
           ],
         ),
         child: Column(
@@ -163,7 +230,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
               backgroundColor: Color(0xFFB11116),
               child: Icon(Icons.person, size: 40, color: Colors.white),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: isMobile ? 16 : 18),
             const Text(
               "Admin Profile",
               style: TextStyle(
@@ -172,41 +239,38 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
                 color: Color(0xFFB11116),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: isMobile ? 10 : 12),
 
-            // ✅ Added Name Field
-            const ListTile(
-              leading: Icon(Icons.person_outline, color: Color(0xFFB11116)),
-              title: Text("Name"),
-              subtitle: Text("N. R. Forename"),
+            ListTile(
+              leading: const Icon(Icons.person_outline, color: Color(0xFFB11116)),
+              title: const Text("Name"),
+              subtitle: Text(adminData["name"]!),
+            ),
+            ListTile(
+              leading: const Icon(Icons.email_outlined, color: Color(0xFFB11116)),
+              title: const Text("Email"),
+              subtitle: Text(adminData["email"]!),
+            ),
+            ListTile(
+              leading: const Icon(Icons.work_outline, color: Color(0xFFB11116)),
+              title: const Text("Position"),
+              subtitle: Text(adminData["position"]!),
+            ),
+            ListTile(
+              leading: const Icon(Icons.security_outlined, color: Color(0xFFB11116)),
+              title: const Text("Privileges"),
+              subtitle: Text(adminData["privileges"]!),
+            ),
+            ListTile(
+              leading: const Icon(Icons.badge_outlined, color: Color(0xFFB11116)),
+              title: const Text("Role"),
+              subtitle: Text(adminData["role"]!),
             ),
 
-            const ListTile(
-              leading: Icon(Icons.email_outlined, color: Color(0xFFB11116)),
-              title: Text("Email"),
-              subtitle: Text("admin@vvcoe.com"),
-            ),
-            const ListTile(
-              leading: Icon(Icons.work_outline, color: Color(0xFFB11116)),
-              title: Text("Position"),
-              subtitle: Text("System Administrator"),
-            ),
-            const ListTile(
-              leading: Icon(Icons.security_outlined, color: Color(0xFFB11116)),
-              title: Text("Privileges"),
-              subtitle: Text("Full Access"),
-            ),
-            const SizedBox(height: 28),
+            SizedBox(height: isMobile ? 24 : 28),
 
-            // ✅ Logout Button
             ElevatedButton.icon(
-              onPressed: () async {
-                await SecureStorage.deleteToken();
-                if (context.mounted) {
-                  Navigator.pushNamedAndRemoveUntil(
-                      context, '/login', (r) => false);
-                }
-              },
+              onPressed: _logout,
               icon: const Icon(Icons.logout, color: Colors.white),
               label: const Text(
                 "Logout",
@@ -226,51 +290,63 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
     );
   }
 
+  /// ✅ Main build
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        backgroundColor: const Color(0xFFFFF8F8),
-        body: Stack(
-          children: [
-            // Main content (slides when sidebar open)
-            AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                return Transform.translate(
-                  offset: Offset(_contentTranslate.value, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 18),
-                      Expanded(child: _buildProfileCard()),
-                    ],
-                  ),
-                );
-              },
-            ),
+        backgroundColor: const Color(0xFFE9F2FF), // 💠 unified bg color
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isMobile = constraints.maxWidth < 600;
 
-            // Overlay
-            IgnorePointer(
-              ignoring: !_isOpen,
-              child: AnimatedOpacity(
-                opacity: _isOpen ? 1 : 0,
-                duration: const Duration(milliseconds: 200),
-                child: GestureDetector(
-                  onTap: _toggleSidebar,
-                  child: Container(color: Colors.black26),
+            return Stack(
+              children: [
+                AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) {
+                    return Transform.translate(
+                      offset: Offset(_contentTranslate.value, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeader(constraints),
+                          SizedBox(height: isMobile ? 10 : 16),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              padding: EdgeInsets.only(bottom: isMobile ? 24 : 32),
+                              child: _buildProfileCard(constraints),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ),
 
-            // Sidebar
-            AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                return Transform.translate(
-                  offset: Offset(_sidebarTranslate.value, 0),
+                // Overlay
+                IgnorePointer(
+                  ignoring: !_isOpen,
+                  child: AnimatedOpacity(
+                    opacity: _isOpen ? 1 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: GestureDetector(
+                      onTap: _toggleSidebar,
+                      child: Container(color: Colors.black26),
+                    ),
+                  ),
+                ),
+
+                // Sidebar
+                AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    return Transform.translate(
+                      offset: Offset(_sidebarTranslate.value, 0),
+                      child: child,
+                    );
+                  },
                   child: SizedBox(
                     width: sidebarWidth,
                     height: MediaQuery.of(context).size.height,
@@ -279,10 +355,10 @@ class _AdminProfileScreenState extends State<AdminProfileScreen>
                       onNavigate: _handleSidebarNavigation,
                     ),
                   ),
-                );
-              },
-            ),
-          ],
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

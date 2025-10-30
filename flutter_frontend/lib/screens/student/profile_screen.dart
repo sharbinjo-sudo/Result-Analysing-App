@@ -18,12 +18,12 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _isOpen = false;
   bool _navigating = false;
 
-  // 🧠 Mock student data (replace later with FastAPI)
   final Map<String, String> studentData = const {
     "name": "N. R. Hacker",
     "registerNo": "VV2025CSE001",
     "department": "Artificial Intelligence and Data Science",
     "email": "student@vvcoe.com",
+    "role": "Student",
   };
 
   @override
@@ -31,7 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
     );
     _sidebarTranslate = Tween<double>(begin: -sidebarWidth, end: 0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
@@ -63,7 +63,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (mounted) Navigator.pushReplacementNamed(context, route);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 250));
       if (mounted) {
         await _controller.reverse();
         setState(() => _isOpen = false);
@@ -78,61 +78,66 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.dispose();
   }
 
-  // ✅ Header (matches Admin/Staff)
+  /// ✅ Header
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFFFFF), Color(0xFFFFF2F2)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
           ],
         ),
         child: Row(
           children: [
             IconButton(
               icon: const Icon(Icons.menu_rounded,
-                  color: Color(0xFFB11116), size: 28),
+                  color: Color(0xFFB11116), size: 30),
               onPressed: _toggleSidebar,
+              tooltip: 'Menu',
             ),
             const SizedBox(width: 8),
-            const Text(
-              "Student Profile",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFB11116),
+            const Expanded(
+              child: Text(
+                "Student Profile",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFB11116),
+                  letterSpacing: 0.3,
+                ),
               ),
             ),
-            const Spacer(),
-            // Dashboard icon
-            Material(
-              color: Colors.white,
-              elevation: 2,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/studentDashboard',
-                    (route) => false,
-                  );
-                },
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFB11116),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.dashboard,
-                      color: Colors.white, size: 22),
+            InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () {
+                Navigator.pushNamedAndRemoveUntil(
+                    context, '/studentDashboard', (route) => false);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 46,
+                height: 46,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFB11116),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                        color: Color(0x33B11116),
+                        blurRadius: 8,
+                        offset: Offset(0, 3))
+                  ],
                 ),
+                child: const Icon(Icons.dashboard, color: Colors.white, size: 22),
               ),
             ),
           ],
@@ -141,74 +146,75 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ✅ Profile Card (Admin-style)
-  Widget _buildProfileCard() {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        width: 400,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 8),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircleAvatar(
-              radius: 40,
-              backgroundColor: Color(0xFFB11116),
-              child: Icon(Icons.person, size: 40, color: Colors.white),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              "Student Profile",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFB11116),
-              ),
-            ),
-            const SizedBox(height: 12),
+  /// ✅ Adaptive Profile Card
+  Widget _buildProfileCard(BoxConstraints constraints) {
+    final bool isMobile = constraints.maxWidth < 600;
+    final double cardWidth = isMobile ? constraints.maxWidth - 40 : 400;
 
-            // Name
-            ListTile(
-              leading: const Icon(Icons.person_outline, color: Color(0xFFB11116)),
-              title: const Text("Name"),
-              subtitle: Text(studentData["name"]!),
+    final profileCard = Container(
+      padding: const EdgeInsets.all(24),
+      width: cardWidth,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 8),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircleAvatar(
+            radius: 40,
+            backgroundColor: Color(0xFFB11116),
+            child: Icon(Icons.person, size: 40, color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "Student Profile",
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFB11116),
             ),
-            // Register Number
-            ListTile(
-              leading: const Icon(Icons.badge_outlined, color: Color(0xFFB11116)),
-              title: const Text("Register Number"),
-              subtitle: Text(studentData["registerNo"]!),
-            ),
-            // Department
-            ListTile(
-              leading: const Icon(Icons.school_outlined, color: Color(0xFFB11116)),
-              title: const Text("Department"),
-              subtitle: Text(studentData["department"]!),
-            ),
-            // Email
-            ListTile(
-              leading: const Icon(Icons.email_outlined, color: Color(0xFFB11116)),
-              title: const Text("Email"),
-              subtitle: Text(studentData["email"]!),
-            ),
-
-            const SizedBox(height: 28),
-
-            // ✅ Logout Button (same as Admin/Staff)
-            ElevatedButton.icon(
+          ),
+          const SizedBox(height: 12),
+          ListTile(
+            leading: const Icon(Icons.person_outline, color: Color(0xFFB11116)),
+            title: const Text("Name"),
+            subtitle: Text(studentData["name"]!),
+          ),
+          ListTile(
+            leading: const Icon(Icons.badge_outlined, color: Color(0xFFB11116)),
+            title: const Text("Register Number"),
+            subtitle: Text(studentData["registerNo"]!),
+          ),
+          ListTile(
+            leading: const Icon(Icons.school_outlined, color: Color(0xFFB11116)),
+            title: const Text("Department"),
+            subtitle: Text(studentData["department"]!),
+          ),
+          ListTile(
+            leading: const Icon(Icons.email_outlined, color: Color(0xFFB11116)),
+            title: const Text("Email"),
+            subtitle: Text(studentData["email"]!),
+          ),
+          ListTile(
+            leading: const Icon(Icons.work_outline, color: Color(0xFFB11116)),
+            title: const Text("Role"),
+            subtitle: Text(studentData["role"]!),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
               onPressed: () async {
                 final confirmLogout = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
                     title: const Text("Confirm Logout"),
-                    content:
-                        const Text("Are you sure you want to logout from your account?"),
+                    content: const Text(
+                        "Are you sure you want to logout from your account?"),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),
@@ -246,12 +252,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+
+    // ✅ Allow scroll only if needed
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 0,
+        vertical: isMobile ? 20 : 30,
+      ),
+      child: Center(child: profileCard),
     );
   }
 
+  /// ✅ Build
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -264,7 +281,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         return false;
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFFFF8F8),
+        backgroundColor: const Color(0xFFE9F2FF),
         body: Stack(
           children: [
             AnimatedBuilder(
@@ -272,13 +289,15 @@ class _ProfileScreenState extends State<ProfileScreen>
               builder: (context, _) {
                 return Transform.translate(
                   offset: Offset(_contentTranslate.value, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 18),
-                      Expanded(child: _buildProfileCard()),
-                    ],
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return Column(
+                        children: [
+                          _buildHeader(),
+                          Expanded(child: _buildProfileCard(constraints)),
+                        ],
+                      );
+                    },
                   ),
                 );
               },
@@ -298,19 +317,20 @@ class _ProfileScreenState extends State<ProfileScreen>
             // Sidebar
             AnimatedBuilder(
               animation: _controller,
-              builder: (context, _) {
+              builder: (context, child) {
                 return Transform.translate(
                   offset: Offset(_sidebarTranslate.value, 0),
-                  child: SizedBox(
-                    width: sidebarWidth,
-                    height: MediaQuery.of(context).size.height,
-                    child: Sidebar(
-                      role: "student",
-                      onNavigate: _handleSidebarNavigation,
-                    ),
-                  ),
+                  child: child,
                 );
               },
+              child: SizedBox(
+                width: sidebarWidth,
+                height: MediaQuery.of(context).size.height,
+                child: Sidebar(
+                  role: "student",
+                  onNavigate: _handleSidebarNavigation,
+                ),
+              ),
             ),
           ],
         ),

@@ -1,6 +1,6 @@
 // lib/screens/shared/notices_screen.dart
-import 'dart:html' as html;
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../widgets/sidebar.dart';
 
 class NoticesScreen extends StatefulWidget {
@@ -37,7 +37,7 @@ class _NoticesScreenState extends State<NoticesScreen>
   ];
 
   bool _uploading = false;
-  html.File? _selectedFile;
+  PlatformFile? _selectedFile;
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
 
@@ -46,7 +46,7 @@ class _NoticesScreenState extends State<NoticesScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
     );
 
     _sidebarTranslate = Tween<double>(begin: -sidebarWidth, end: 0).animate(
@@ -82,7 +82,7 @@ class _NoticesScreenState extends State<NoticesScreen>
     if (current == route) {
       if (_isSidebarOpen) {
         await _controller.reverse();
-        if (mounted) setState(() => _isSidebarOpen = false);
+        setState(() => _isSidebarOpen = false);
       }
       _navigating = false;
       return;
@@ -96,12 +96,9 @@ class _NoticesScreenState extends State<NoticesScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.delayed(const Duration(milliseconds: 250));
-      if (!mounted) {
-        _navigating = false;
-        return;
-      }
+      if (!mounted) return;
       await _controller.reverse();
-      if (mounted) setState(() => _isSidebarOpen = false);
+      setState(() => _isSidebarOpen = false);
       _navigating = false;
     });
   }
@@ -122,13 +119,15 @@ class _NoticesScreenState extends State<NoticesScreen>
     return false;
   }
 
-  void _pickFile() {
-    final uploadInput = html.FileUploadInputElement()..accept = '.pdf';
-    uploadInput.click();
-    uploadInput.onChange.listen((e) {
-      final file = uploadInput.files?.first;
-      if (file != null) setState(() => _selectedFile = file);
-    });
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
+    if (result != null && result.files.isNotEmpty) {
+      setState(() => _selectedFile = result.files.first);
+    }
   }
 
   Future<void> _uploadNotice() async {
@@ -168,26 +167,36 @@ class _NoticesScreenState extends State<NoticesScreen>
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text("Upload New Notice",
-            style: TextStyle(color: Color(0xFFB11116), fontWeight: FontWeight.bold)),
+            style: TextStyle(
+                color: Color(0xFFB11116), fontWeight: FontWeight.bold)),
         content: SizedBox(
           width: 400,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: _titleController, decoration: const InputDecoration(labelText: "Title")),
+              TextField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(labelText: "Title")),
               const SizedBox(height: 10),
-              TextField(controller: _descController, decoration: const InputDecoration(labelText: "Description"), maxLines: 2),
+              TextField(
+                  controller: _descController,
+                  decoration: const InputDecoration(labelText: "Description"),
+                  maxLines: 2),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: _pickFile,
                 icon: const Icon(Icons.attach_file),
-                label: Text(_selectedFile != null ? _selectedFile!.name : "Select PDF File"),
+                label: Text(_selectedFile != null
+                    ? _selectedFile!.name
+                    : "Select PDF File"),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel")),
           ElevatedButton(
             onPressed: _uploading
                 ? null
@@ -195,9 +204,14 @@ class _NoticesScreenState extends State<NoticesScreen>
                     Navigator.pop(context);
                     await _uploadNotice();
                   },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFB11116)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFB11116)),
             child: _uploading
-                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
                 : const Text("Upload"),
           ),
         ],
@@ -205,69 +219,67 @@ class _NoticesScreenState extends State<NoticesScreen>
     );
   }
 
-  // ✅ Updated Header (matches dashboard style)
+  /// Header updated to match other screens (gradient, centered title, dashboard circle)
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
-          ],
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 20, bottom: 20), // restored original margins
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14), // restored original padding
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFFFFF), Color(0xFFFFF2F2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.menu_rounded, color: Color(0xFFB11116), size: 28),
-              onPressed: _toggleSidebar,
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              "College Notices 📢",
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.menu_rounded,
+                color: Color(0xFFB11116), size: 26),
+            onPressed: _toggleSidebar,
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              "College Notices",
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFFB11116),
               ),
             ),
-            const Spacer(),
-
-            // ✅ Dashboard Icon (adaptive to role)
-            Material(
-              color: Colors.white,
-              elevation: 2,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () {
-                  switch (widget.role.toLowerCase()) {
-                    case "admin":
-                      Navigator.pushReplacementNamed(context, '/adminDashboard');
-                      break;
-                    case "staff":
-                      Navigator.pushReplacementNamed(context, '/staffDashboard');
-                      break;
-                    default:
-                      Navigator.pushReplacementNamed(context, '/studentDashboard');
-                  }
-                },
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFB11116),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.dashboard, color: Colors.white, size: 22),
-                ),
+          ),
+          InkWell(
+            borderRadius: BorderRadius.circular(50),
+            onTap: () {
+              switch (widget.role.toLowerCase()) {
+                case "admin":
+                  Navigator.pushReplacementNamed(context, '/adminDashboard');
+                  break;
+                case "staff":
+                  Navigator.pushReplacementNamed(context, '/staffDashboard');
+                  break;
+                default:
+                  Navigator.pushReplacementNamed(context, '/studentDashboard');
+              }
+            },
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: const BoxDecoration(
+                color: Color(0xFFB11116),
+                shape: BoxShape.circle,
               ),
+              child: const Icon(Icons.dashboard, color: Colors.white, size: 20),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -279,19 +291,17 @@ class _NoticesScreenState extends State<NoticesScreen>
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        backgroundColor: const Color(0xFFFFF8F8),
-
-        // ✅ Floating Upload Button (only for Admin)
+        backgroundColor: const Color(0xFFE9F2FF),
         floatingActionButton: isAdmin
             ? FloatingActionButton.extended(
                 onPressed: _openUploadDialog,
                 backgroundColor: const Color(0xFFB11116),
                 icon: const Icon(Icons.upload_file, color: Colors.white),
                 label: const Text("Upload Notice",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600)),
               )
             : null,
-
         body: Stack(
           children: [
             AnimatedBuilder(
@@ -299,51 +309,57 @@ class _NoticesScreenState extends State<NoticesScreen>
               builder: (context, _) {
                 return Transform.translate(
                   offset: Offset(_contentTranslate.value, 0),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeader(),
-                        const SizedBox(height: 20),
-                        Text(
-                          isAdmin
-                              ? "Manage and upload official circulars and announcements."
-                              : "View official circulars, updates, and important information.",
-                          style: const TextStyle(fontSize: 16, color: Colors.black54),
-                        ),
-                        const SizedBox(height: 24),
-                        if (notices.isEmpty)
-                          const Center(
-                              child: Text("No notices available.",
-                                  style: TextStyle(color: Colors.black54)))
-                        else
-                          Wrap(
-                            spacing: 20,
-                            runSpacing: 20,
-                            children: notices.map((n) {
-                              return _NoticeCard(
-                                title: n["title"]!,
-                                desc: n["desc"]!,
-                                file: n["file"]!,
-                                date: n["date"]!,
-                                onDownload: () {
-                                  html.AnchorElement(href: "#")
-                                    ..setAttribute("download", n["file"]!)
-                                    ..click();
-                                },
-                              );
-                            }).toList(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeader(),
+                          const SizedBox(height: 8),
+                          Text(
+                            isAdmin
+                                ? "Manage and upload official circulars and announcements."
+                                : "View official circulars, updates, and important information.",
+                            style: const TextStyle(
+                                fontSize: 16, color: Colors.black54),
                           ),
-                        const SizedBox(height: 80), // extra bottom padding for FAB
-                      ],
+                          const SizedBox(height: 20),
+                          if (notices.isEmpty)
+                            const Center(
+                                child: Text("No notices available.",
+                                    style: TextStyle(color: Colors.black54)))
+                          else
+                            Column(
+                              children: notices
+                                  .map((n) => Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 16),
+                                        child: _NoticeCard(
+                                          title: n["title"]!,
+                                          desc: n["desc"]!,
+                                          file: n["file"]!,
+                                          date: n["date"]!,
+                                          onDownload: () {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                  content: Text(
+                                                      "Downloading ${n["file"]!}...")),
+                                            );
+                                          },
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
+                          const SizedBox(height: 80),
+                        ],
+                      ),
                     ),
                   ),
                 );
               },
             ),
-
-            // Overlay
             IgnorePointer(
               ignoring: !_isSidebarOpen,
               child: AnimatedOpacity(
@@ -355,20 +371,24 @@ class _NoticesScreenState extends State<NoticesScreen>
                 ),
               ),
             ),
-
-            // Sidebar
             AnimatedBuilder(
               animation: _controller,
-              builder: (context, _) {
+              builder: (context, child) {
                 return Transform.translate(
                   offset: Offset(_sidebarTranslate.value, 0),
-                  child: SizedBox(
-                    width: sidebarWidth,
-                    height: MediaQuery.of(context).size.height,
-                    child: Sidebar(role: widget.role, onNavigate: _handleSidebarNavigation),
-                  ),
+                  child: child,
                 );
               },
+              child: RepaintBoundary(
+                child: SizedBox(
+                  width: sidebarWidth,
+                  height: MediaQuery.of(context).size.height,
+                  child: Sidebar(
+                    role: widget.role,
+                    onNavigate: _handleSidebarNavigation,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -377,7 +397,6 @@ class _NoticesScreenState extends State<NoticesScreen>
   }
 }
 
-// 🔸 Notice Card Widget
 class _NoticeCard extends StatelessWidget {
   final String title, desc, file, date;
   final VoidCallback? onDownload;
@@ -393,13 +412,14 @@ class _NoticeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Restored original sizing & padding exactly as before
     return Container(
-      width: 320,
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16), // original padding
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFB11116).withOpacity(0.3)),
+        // border removed per your request
         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
       ),
       child: Column(
@@ -411,7 +431,7 @@ class _NoticeCard extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   color: Color(0xFFB11116))),
           const SizedBox(height: 8),
-          Text(desc, style: const TextStyle(color: Colors.black87)),
+          Text(desc, style: const TextStyle(color: Colors.black87, fontSize: 15)),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -419,8 +439,8 @@ class _NoticeCard extends StatelessWidget {
               Text(date, style: const TextStyle(color: Colors.black54)),
               TextButton.icon(
                 onPressed: onDownload,
-                icon: const Icon(Icons.download, size: 18),
-                label: const Text("Download"),
+                icon: const Icon(Icons.download, size: 18, color: Colors.purple),
+                label: const Text("Download", style: TextStyle(color: Colors.purple)),
               ),
             ],
           ),

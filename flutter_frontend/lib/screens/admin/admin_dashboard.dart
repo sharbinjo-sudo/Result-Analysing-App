@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../widgets/sidebar.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -64,76 +65,116 @@ class _AdminDashboardState extends State<AdminDashboard>
     });
   }
 
+  /// ✅ Exit confirmation (same behavior as other dashboards)
+  Future<bool> _onWillPop() async {
+    if (_isOpen) {
+      _toggleSidebar();
+      return false;
+    }
+
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text(
+          "Exit App?",
+          style: TextStyle(
+            color: Color(0xFFB11116),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text("Do you really want to close the app?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              "Exit",
+              style: TextStyle(color: Color(0xFFB11116)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldExit == true) SystemNavigator.pop();
+    return false;
+  }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
-  // ✅ Header with clickable Admin Icon
+  // 🌟 Gradient header to match the unified dashboard theme
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFFFFF), Color(0xFFFFF2F2)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
           ],
         ),
         child: Row(
           children: [
-            // Left: Menu + Title
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(
-                    Icons.menu_rounded,
-                    color: Color(0xFFB11116),
-                    size: 28,
-                  ),
-                  onPressed: _toggleSidebar,
-                  tooltip: 'Menu',
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  "Welcome, Admin 👋",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFB11116),
-                  ),
-                ),
-              ],
+            IconButton(
+              icon: const Icon(
+                Icons.menu_rounded,
+                color: Color(0xFFB11116),
+                size: 30,
+              ),
+              onPressed: _toggleSidebar,
+              tooltip: 'Menu',
             ),
-
-            const Spacer(),
-
-            // ✅ Right: clickable Admin Icon (redirects to profile)
-            Material(
-              color: Colors.white,
-              elevation: 2,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () {
-                  Navigator.pushNamed(context, '/adminProfile');
-                },
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFB11116),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.admin_panel_settings,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                "Welcome, Admin 👋",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFB11116),
+                ),
+              ),
+            ),
+            InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () {
+                Navigator.pushNamed(context, '/adminProfile');
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 46,
+                height: 46,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFB11116),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x33B11116),
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.admin_panel_settings,
+                  color: Colors.white,
+                  size: 22,
                 ),
               ),
             ),
@@ -143,110 +184,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F8),
-      body: Stack(
-        children: [
-          // ✅ MAIN CONTENT
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              return Transform.translate(
-                offset: Offset(_contentTranslate.value, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: 18),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "Manage users, approve accounts, and control notices.",
-                              style: TextStyle(fontSize: 16, color: Colors.black54),
-                            ),
-                            const SizedBox(height: 30),
-                            Wrap(
-                              spacing: 20,
-                              runSpacing: 20,
-                              children: [
-                                _buildCard(
-                                  title: "Manage Notices",
-                                  description:
-                                      "Upload or remove official college notices.",
-                                  icon: Icons.notifications_active_outlined,
-                                  color: Colors.purple,
-                                  route: '/collegeNoticesAdmin',
-                                ),
-                                _buildCard(
-                                  title: "User Management",
-                                  description:
-                                      "Approve, revoke or delete user accounts.",
-                                  icon: Icons.people_alt_outlined,
-                                  color: Colors.blue,
-                                  route: '/adminUserManagement',
-                                ),
-                                _buildCard(
-                                  title: "Profile",
-                                  description:
-                                      "View your profile and logout safely.",
-                                  icon: Icons.person_outline,
-                                  color: Colors.red,
-                                  route: '/adminProfile',
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          // ✅ OVERLAY (tap to close)
-          IgnorePointer(
-            ignoring: !_isOpen,
-            child: AnimatedOpacity(
-              opacity: _isOpen ? 1 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: GestureDetector(
-                onTap: _toggleSidebar,
-                child: Container(color: Colors.black26),
-              ),
-            ),
-          ),
-
-          // ✅ SIDEBAR
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              return Transform.translate(
-                offset: Offset(_sidebarTranslate.value, 0),
-                child: SizedBox(
-                  width: sidebarWidth,
-                  height: MediaQuery.of(context).size.height,
-                  child: Sidebar(
-                    role: "admin",
-                    onNavigate: _handleSidebarNavigation,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 🔹 Dashboard Card
+  // 🧱 Unified white card style (clean & professional)
   Widget _buildCard({
     required String title,
     required String description,
@@ -257,16 +195,21 @@ class _AdminDashboardState extends State<AdminDashboard>
     return InkWell(
       onTap: () => _handleSidebarNavigation(route),
       borderRadius: BorderRadius.circular(16),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
         width: 260,
-        height: 150,
-        padding: const EdgeInsets.all(16),
+        height: 160,
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3)),
           boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(1, 2)),
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8,
+              offset: Offset(2, 4),
+            ),
           ],
         ),
         child: Column(
@@ -277,10 +220,10 @@ class _AdminDashboardState extends State<AdminDashboard>
             Text(
               title,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: color,
+              style: const TextStyle(
+                color: Colors.black87,
                 fontWeight: FontWeight.bold,
-                fontSize: 17,
+                fontSize: 18,
               ),
             ),
             const SizedBox(height: 6),
@@ -292,6 +235,126 @@ class _AdminDashboardState extends State<AdminDashboard>
                 color: Colors.black54,
                 height: 1.3,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🧠 Main layout – adaptive for all screen sizes
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFE9F2FF), // <-- background matched to others
+        body: Stack(
+          children: [
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return Transform.translate(
+                  offset: Offset(_contentTranslate.value, 0),
+                  child: Column(
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 20),
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isMobile = constraints.maxWidth < 700;
+
+                            return SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    "Manage users, approve accounts, and control notices.",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 30),
+                                  Wrap(
+                                    alignment: WrapAlignment.center,
+                                    spacing: 24,
+                                    runSpacing: 24,
+                                    direction: isMobile
+                                        ? Axis.vertical
+                                        : Axis.horizontal,
+                                    children: [
+                                      _buildCard(
+                                        title: "Manage Notices",
+                                        description:
+                                            "Upload or remove official college notices.",
+                                        icon: Icons.notifications_active_outlined,
+                                        color: Colors.purple,
+                                        route: '/collegeNoticesAdmin',
+                                      ),
+                                      _buildCard(
+                                        title: "User Management",
+                                        description:
+                                            "Approve, revoke or delete user accounts.",
+                                        icon: Icons.people_alt_outlined,
+                                        color: Colors.blue,
+                                        route: '/adminUserManagement',
+                                      ),
+                                      _buildCard(
+                                        title: "Profile",
+                                        description:
+                                            "View your profile and logout safely.",
+                                        icon: Icons.person_outline,
+                                        color: Colors.red,
+                                        route: '/adminProfile',
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            // overlay (closes sidebar on tap)
+            IgnorePointer(
+              ignoring: !_isOpen,
+              child: AnimatedOpacity(
+                opacity: _isOpen ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: GestureDetector(
+                  onTap: _toggleSidebar,
+                  child: Container(color: Colors.black26),
+                ),
+              ),
+            ),
+
+            // sidebar
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return Transform.translate(
+                  offset: Offset(_sidebarTranslate.value, 0),
+                  child: SizedBox(
+                    width: sidebarWidth,
+                    height: MediaQuery.of(context).size.height,
+                    child: Sidebar(
+                      role: "admin",
+                      onNavigate: _handleSidebarNavigation,
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),

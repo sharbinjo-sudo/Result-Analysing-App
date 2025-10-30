@@ -13,8 +13,9 @@ class _LoginPageState extends State<LoginPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
+  bool _showPassword = false;
 
-  // 🔹 Temporary fake credentials for testing
+  // Temporary fake credentials for testing
   final Map<String, Map<String, String>> _fakeUsers = {
     "student@vvcoe.com": {"password": "student123", "role": "student"},
     "staff@vvcoe.com": {"password": "staff123", "role": "staff"},
@@ -30,22 +31,19 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     setState(() => _loading = true);
+    await Future.delayed(const Duration(milliseconds: 800)); // realism
 
-    // ✅ First check for fake credentials (local test mode)
-    await Future.delayed(const Duration(seconds: 1)); // small delay for realism
-
+    // Local test login
     if (_fakeUsers.containsKey(_email.text) &&
         _fakeUsers[_email.text]!["password"] == _password.text) {
       final role = _fakeUsers[_email.text]!["role"]!;
       await SecureStorage.saveToken("fake_token_for_$role");
+      setState(() => _loading = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Welcome back, $role!")),
       );
 
-      setState(() => _loading = false);
-
-      // Navigate to correct dashboard
       if (role == "student") {
         Navigator.pushReplacementNamed(context, '/studentDashboard');
       } else if (role == "staff") {
@@ -56,14 +54,14 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    // 🔹 If not fake user → try real API
+    // Real API login
     final data = await ApiService.login(_email.text, _password.text);
     setState(() => _loading = false);
 
     if (data != null && data['access_token'] != null) {
       await SecureStorage.saveToken(data['access_token']);
-
       final role = data['role'] ?? 'unknown';
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Welcome back, $role!")),
       );
@@ -89,82 +87,156 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isSmall = MediaQuery.of(context).size.width < 400;
+
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFB11116),
-        title: const Text(
-          "V V College of Engineering",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        centerTitle: true,
-      ),
-      backgroundColor: const Color(0xFFFFF8F8),
+      backgroundColor: const Color(0xFFE9F2FF),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Container(
-            padding: const EdgeInsets.all(24),
-            width: 360,
+            width: isSmall ? double.infinity : 400,
+            padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: const [
+                BoxShadow(
+                    color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))
+              ],
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Image.asset('assets/images/vvcoe_logo.jpg', height: 80),
-                const SizedBox(height: 12),
-
-                const Text(
-                  "Login",
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFB11116),
+                // Logo
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFB11116), width: 2),
                   ),
-                ),
-                const SizedBox(height: 32),
-
-                TextField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: "Email",
-                    prefixIcon:
-                        Icon(Icons.email_outlined, color: Color(0xFFB11116)),
-                    border: OutlineInputBorder(),
+                  padding: const EdgeInsets.all(10),
+                  child: Image.asset(
+                    'assets/images/vvcoe_logo.jpg',
+                    height: 70,
+                    width: 70,
+                    fit: BoxFit.cover,
                   ),
                 ),
                 const SizedBox(height: 16),
 
+                // College name
+                const Text(
+                  "V V College of Engineering",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFB11116),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  "Result Analysis System",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+
+                const SizedBox(height: 28),
+
+                // Email
+                TextField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: "Email",
+                    prefixIcon: const Icon(Icons.email_outlined,
+                        color: Color(0xFFB11116)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFFF9F9F9),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Password
                 TextField(
                   controller: _password,
-                  obscureText: true,
-                  decoration: const InputDecoration(
+                  obscureText: !_showPassword,
+                  decoration: InputDecoration(
                     labelText: "Password",
                     prefixIcon:
-                        Icon(Icons.lock_outline, color: Color(0xFFB11116)),
-                    border: OutlineInputBorder(),
+                        const Icon(Icons.lock_outline, color: Color(0xFFB11116)),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _showPassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () =>
+                          setState(() => _showPassword = !_showPassword),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFFF9F9F9),
                   ),
                 ),
                 const SizedBox(height: 24),
 
-                ElevatedButton(
-                  onPressed: _loading ? null : handleLogin,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFB11116),
-                    minimumSize: const Size.fromHeight(48),
+                // Login button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : handleLogin,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFB11116),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 3,
+                    ),
+                    child: _loading
+                        ? const SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2.3),
+                          )
+                        : const Text(
+                            "Login",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600),
+                          ),
                   ),
-                  child: _loading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          "Login",
-                          style: TextStyle(color: Colors.white, fontSize: 16),
-                        ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 28),
 
-                // 🧩 Display test credentials
+                // Divider
+                Row(
+                  children: const [
+                    Expanded(child: Divider(thickness: 1)),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text("Test Accounts",
+                          style: TextStyle(
+                              color: Colors.black54, fontSize: 13.5)),
+                    ),
+                    Expanded(child: Divider(thickness: 1)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Test accounts
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -174,16 +246,20 @@ class _LoginPageState extends State<LoginPage> {
                   child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Test Login Accounts:",
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFB11116))),
-                      SizedBox(height: 6),
                       Text("Student — student@vvcoe.com / student123"),
                       Text("Staff — staff@vvcoe.com / staff123"),
                       Text("Admin — admin@vvcoe.com / admin123"),
                     ],
                   ),
+                ),
+                const SizedBox(height: 10),
+
+                const Text(
+                  "Only authorized users can log in",
+                  style: TextStyle(
+                      color: Colors.black54,
+                      fontSize: 12.5,
+                      fontStyle: FontStyle.italic),
                 ),
               ],
             ),
