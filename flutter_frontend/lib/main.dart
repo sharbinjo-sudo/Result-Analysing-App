@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 // 🔹 Import Screens
 import 'screens/login_page.dart';
+import 'app_start.dart';
 
 // --- Student Screens ---
 import 'screens/student/student_dashboard.dart';
@@ -63,7 +64,8 @@ class VVCollegeApp extends StatelessWidget {
       ),
 
       // ✅ Initial route
-      initialRoute: '/login',
+      home: const AppStart(),
+
 
       // ✅ All Named Routes
       routes: {
