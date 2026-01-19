@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:jwt_decode/jwt_decode.dart';
+
 import '../services/api_service.dart';
 import '../utils/storage.dart';
 
@@ -10,75 +12,55 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _email = TextEditingController();
-  final _password = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
   bool _loading = false;
   bool _showPassword = false;
 
-  // Temporary fake credentials for testing
-  final Map<String, Map<String, String>> _fakeUsers = {
-    "student@vvcoe.com": {"password": "student123", "role": "student"},
-    "staff@vvcoe.com": {"password": "staff123", "role": "staff"},
-    "admin@vvcoe.com": {"password": "admin123", "role": "admin"},
-  };
-
   Future<void> handleLogin() async {
-    if (_email.text.isEmpty || _password.text.isEmpty) {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill all fields")),
+        const SnackBar(content: Text("Please enter username and password")),
       );
       return;
     }
 
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 800)); // realism
 
-    // Local test login
-    if (_fakeUsers.containsKey(_email.text) &&
-        _fakeUsers[_email.text]!["password"] == _password.text) {
-      final role = _fakeUsers[_email.text]!["role"]!;
-      await SecureStorage.saveToken("fake_token_for_$role");
+    try {
+      // 🔑 Call Django JWT login
+      final data = await ApiService.login(username, password);
+
+      final accessToken = data["access"];
+
+      // 💾 Save token securely
+      await SecureStorage.saveToken(accessToken);
+
+      // 🔍 Decode JWT to get role
+      final decodedToken = Jwt.parseJwt(accessToken);
+      final role = decodedToken["role"];
+
       setState(() => _loading = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Welcome back, $role!")),
-      );
-
-      if (role == "student") {
-        Navigator.pushReplacementNamed(context, '/studentDashboard');
+      // 🚦 Route based on role
+      if (role == "admin") {
+        Navigator.pushReplacementNamed(context, "/adminDashboard");
       } else if (role == "staff") {
-        Navigator.pushReplacementNamed(context, '/staffDashboard');
-      } else if (role == "admin") {
-        Navigator.pushReplacementNamed(context, '/adminDashboard');
-      }
-      return;
-    }
-
-    // Real API login
-    final data = await ApiService.login(_email.text, _password.text);
-    setState(() => _loading = false);
-
-    if (data != null && data['access_token'] != null) {
-      await SecureStorage.saveToken(data['access_token']);
-      final role = data['role'] ?? 'unknown';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Welcome back, $role!")),
-      );
-
-      if (role.toLowerCase() == "student") {
-        Navigator.pushReplacementNamed(context, '/studentDashboard');
-      } else if (["staff", "faculty", "hod", "principal"]
-          .contains(role.toLowerCase())) {
-        Navigator.pushReplacementNamed(context, '/staffDashboard');
-      } else if (role.toLowerCase() == "admin") {
-        Navigator.pushReplacementNamed(context, '/adminDashboard');
+        Navigator.pushReplacementNamed(context, "/staffDashboard");
+      } else if (role == "student") {
+        Navigator.pushReplacementNamed(context, "/studentDashboard");
       } else {
+        await SecureStorage.deleteToken();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Unauthorized user role")),
+          const SnackBar(content: Text("Unauthorized role")),
         );
       }
-    } else {
+    } catch (e) {
+      setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Invalid credentials")),
       );
@@ -102,7 +84,10 @@ class _LoginPageState extends State<LoginPage> {
               borderRadius: BorderRadius.circular(18),
               boxShadow: const [
                 BoxShadow(
-                    color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))
+                  color: Colors.black26,
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                )
               ],
             ),
             child: Column(
@@ -122,9 +107,9 @@ class _LoginPageState extends State<LoginPage> {
                     fit: BoxFit.cover,
                   ),
                 ),
-                const SizedBox(height: 16),
 
-                // College name
+                const SizedBox(height: 20),
+
                 const Text(
                   "V V College of Engineering",
                   textAlign: TextAlign.center,
@@ -134,25 +119,25 @@ class _LoginPageState extends State<LoginPage> {
                     color: Color(0xFFB11116),
                   ),
                 ),
+
                 const SizedBox(height: 6),
+
                 const Text(
                   "Result Analysis System",
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.black54,
-                    letterSpacing: 0.3,
                   ),
                 ),
 
                 const SizedBox(height: 28),
 
-                // Email
+                // Username
                 TextField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
+                  controller: _usernameController,
                   decoration: InputDecoration(
-                    labelText: "Email",
-                    prefixIcon: const Icon(Icons.email_outlined,
+                    labelText: "Username",
+                    prefixIcon: const Icon(Icons.person_outline,
                         color: Color(0xFFB11116)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -161,11 +146,12 @@ class _LoginPageState extends State<LoginPage> {
                     fillColor: const Color(0xFFF9F9F9),
                   ),
                 ),
+
                 const SizedBox(height: 16),
 
                 // Password
                 TextField(
-                  controller: _password,
+                  controller: _passwordController,
                   obscureText: !_showPassword,
                   decoration: InputDecoration(
                     labelText: "Password",
@@ -176,10 +162,10 @@ class _LoginPageState extends State<LoginPage> {
                         _showPassword
                             ? Icons.visibility_off
                             : Icons.visibility,
-                        color: Colors.grey,
                       ),
-                      onPressed: () =>
-                          setState(() => _showPassword = !_showPassword),
+                      onPressed: () {
+                        setState(() => _showPassword = !_showPassword);
+                      },
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -188,9 +174,10 @@ class _LoginPageState extends State<LoginPage> {
                     fillColor: const Color(0xFFF9F9F9),
                   ),
                 ),
+
                 const SizedBox(height: 24),
 
-                // Login button
+                // Login Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -201,65 +188,36 @@ class _LoginPageState extends State<LoginPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      elevation: 3,
                     ),
                     child: _loading
                         ? const SizedBox(
                             height: 22,
                             width: 22,
                             child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2.3),
+                              color: Colors.white,
+                              strokeWidth: 2.3,
+                            ),
                           )
                         : const Text(
                             "Login",
                             style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600),
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                   ),
                 ),
-                const SizedBox(height: 28),
 
-                // Divider
-                Row(
-                  children: const [
-                    Expanded(child: Divider(thickness: 1)),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text("Test Accounts",
-                          style: TextStyle(
-                              color: Colors.black54, fontSize: 13.5)),
-                    ),
-                    Expanded(child: Divider(thickness: 1)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                // Test accounts
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Student — student@vvcoe.com / student123"),
-                      Text("Staff — staff@vvcoe.com / staff123"),
-                      Text("Admin — admin@vvcoe.com / admin123"),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 20),
 
                 const Text(
                   "Only authorized users can log in",
                   style: TextStyle(
-                      color: Colors.black54,
-                      fontSize: 12.5,
-                      fontStyle: FontStyle.italic),
+                    color: Colors.black54,
+                    fontSize: 12.5,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ],
             ),

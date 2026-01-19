@@ -1,10 +1,14 @@
 import 'package:dio/dio.dart';
 
 class ApiService {
-  // ✅ Create a single Dio instance with base options
   static final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: "https://your-api-url.com/api", // change this to your FastAPI URL later
+      // ✅ Flutter Web / Windows
+      baseUrl: "http://127.0.0.1:8000/api/auth",
+
+      // ✅ Android Emulator (use instead if needed)
+      // baseUrl: "http://10.0.2.2:8000/api/auth",
+
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {
@@ -13,36 +17,30 @@ class ApiService {
     ),
   );
 
-  // ✅ Login method returning a JSON Map or null
-  static Future<Map<String, dynamic>?> login(String email, String password) async {
+  // ✅ LOGIN (DJANGO SIMPLEJWT)
+  static Future<Map<String, dynamic>> login(
+      String username, String password) async {
     try {
       final response = await _dio.post(
-        '/auth/login',
+        '/login/',
         data: {
-          "email": email,
+          "username": username,
           "password": password,
         },
       );
 
-      // Check for valid response
       if (response.statusCode == 200) {
-        return response.data as Map<String, dynamic>;
-      } else {
-        print("Login failed: ${response.statusCode}");
-        return null;
+        // 🔥 CRITICAL FIX FOR FLUTTER WEB
+        return Map<String, dynamic>.from(response.data);
       }
+
+      throw Exception("Login failed");
     } on DioException catch (e) {
-      // Dio-specific error handling
       if (e.response != null) {
-        print("Login error: ${e.response?.data}");
+        throw Exception(e.response?.data["detail"] ?? "Login error");
       } else {
-        print("Connection error: ${e.message}");
+        throw Exception("Connection error");
       }
-      return null;
-    } catch (e) {
-      // Any other error
-      print("Unexpected error: $e");
-      return null;
     }
   }
 }
