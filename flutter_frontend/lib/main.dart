@@ -1,7 +1,7 @@
-// 📁 lib/main.dart
 import 'package:flutter/material.dart';
 
-// 🔹 Import Screens
+// 🔹 Core
+import 'utils/route_guard.dart';
 import 'screens/login_page.dart';
 import 'app_start.dart';
 
@@ -39,7 +39,7 @@ class VVCollegeApp extends StatelessWidget {
       title: 'V V College of Engineering',
       debugShowCheckedModeBanner: false,
 
-      // ✅ Global Theme
+      // 🎨 Theme
       theme: ThemeData(
         useMaterial3: true,
         primaryColor: const Color(0xFFB11116),
@@ -63,44 +63,124 @@ class VVCollegeApp extends StatelessWidget {
         ),
       ),
 
-      // ✅ Initial route
+      // 🚀 App start
       home: const AppStart(),
 
+      // 🔐 ROUTE GUARD (GLOBAL)
+      onGenerateRoute: (settings) {
+        switch (settings.name) {
 
-      // ✅ All Named Routes
-      routes: {
-        // --- Authentication ---
-        '/login': (context) => const LoginPage(),
+          // 🔓 Public
+          case '/login':
+            return MaterialPageRoute(
+              builder: (_) => const LoginPage(),
+              settings: settings,
+            );
 
-        // --- Student routes ---
-        '/studentDashboard': (context) => const StudentDashboard(),
-        '/studentResults': (context) => const ResultScreen(),
-        '/studentAnalysis': (context) => const AnalysisScreen(),
-        '/studentProfile': (context) => const ProfileScreen(),
+          // 🎓 Student
+          case '/studentDashboard':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'student',
+              builder: (_) => const StudentDashboard(),
+            );
+          case '/studentResults':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'student',
+              builder: (_) => const ResultScreen(),
+            );
+          case '/studentAnalysis':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'student',
+              builder: (_) => const AnalysisScreen(),
+            );
+          case '/studentProfile':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'student',
+              builder: (_) => const ProfileScreen(),
+            );
 
-        // --- Staff routes ---
-        '/staffDashboard': (context) => const StaffDashboard(),
-        '/staffUploadResults': (context) => const UploadResultsScreen(),
-        '/staffClassAnalysis': (context) => const ClassAnalysisScreen(),
-        '/staffStudentInsights': (context) => const StudentInsightsScreen(),
+          // 👨‍🏫 Staff
+          case '/staffDashboard':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'staff',
+              builder: (_) => const StaffDashboard(),
+            );
+          case '/staffUploadResults':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'staff',
+              builder: (_) => const UploadResultsScreen(),
+            );
+          case '/staffClassAnalysis':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'staff',
+              builder: (_) => const ClassAnalysisScreen(),
+            );
+          case '/staffStudentInsights':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'staff',
+              builder: (_) => const StudentInsightsScreen(),
+            );
+          case '/staffProfile':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'staff',
+              builder: (_) => const StaffProfileScreen(),
+            );
 
-        // --- Admin routes ---
-        '/adminDashboard': (context) => const AdminDashboard(),
-        '/staffProfile': (context) => const StaffProfileScreen(),
-        '/adminProfile': (context) => const AdminProfileScreen(),
+          // 👑 Admin
+          case '/adminDashboard':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'admin',
+              builder: (_) => const AdminDashboard(),
+            );
+          case '/adminProfile':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'admin',
+              builder: (_) => const AdminProfileScreen(),
+            );
+          case '/adminUserManagement':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'admin',
+              builder: (_) => const UserManagementScreen(),
+            );
 
-        // --- Shared route: College Notices ---
-        '/collegeNoticesStudent': (context) => const NoticesScreen(role: "student"),
-          '/collegeNoticesStaff': (context) => const NoticesScreen(role: "staff"),
-          '/collegeNoticesAdmin': (context) => const NoticesScreen(role: "admin"),
-        '/adminUserManagement': (context) => const UserManagementScreen(),
-        // --- Shared route: College Notices ---
-        '/collegeNotices': (context) {
-          // You can dynamically set the role later using arguments
-          final args = ModalRoute.of(context)?.settings.arguments as Map?;
-          final role = args?['role'] ?? 'student';
-          return NoticesScreen(role: role);
-        },
+          // 📢 Notices
+          case '/collegeNoticesStudent':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'student',
+              builder: (_) => const NoticesScreen(role: 'student'),
+            );
+          case '/collegeNoticesStaff':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'staff',
+              builder: (_) => const NoticesScreen(role: 'staff'),
+            );
+          case '/collegeNoticesAdmin':
+            return RouteGuard.guard(
+              settings: settings,
+              requiredRole: 'admin',
+              builder: (_) => const NoticesScreen(role: 'admin'),
+            );
+
+          // ❓ Fallback
+          default:
+            return MaterialPageRoute(
+              builder: (_) => const LoginPage(),
+            );
+        }
       },
     );
   }
