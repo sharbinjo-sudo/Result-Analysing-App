@@ -1,283 +1,214 @@
-// lib/screens/shared/notices_screen.dart
-import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import '../../widgets/sidebar.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../services/api_service.dart';
+import '../../theme.dart';
+import '../../widgets/college_scaffold.dart';
+import '../../widgets/dashboard_parts.dart';
 
 class NoticesScreen extends StatefulWidget {
-  final String role; // "student", "staff", or "admin"
   const NoticesScreen({super.key, required this.role});
+
+  final String role;
 
   @override
   State<NoticesScreen> createState() => _NoticesScreenState();
 }
 
-class _NoticesScreenState extends State<NoticesScreen>
-    with SingleTickerProviderStateMixin {
-  static const double sidebarWidth = 240;
-  late final AnimationController _controller;
-  late final Animation<double> _sidebarTranslate;
-  late final Animation<double> _contentTranslate;
-
-  bool _isSidebarOpen = false;
-  bool _navigating = false;
-
-  List<Map<String, String>> notices = [
-    {
-      "title": "End Semester Schedule",
-      "desc": "End semester exam schedule for all departments.",
-      "file": "end_sem_schedule.pdf",
-      "date": "20 Oct 2025",
-    },
-    {
-      "title": "Holiday Circular",
-      "desc": "College closed on account of festival.",
-      "file": "holiday_notice.pdf",
-      "date": "14 Oct 2025",
-    },
-  ];
-
+class _NoticesScreenState extends State<NoticesScreen> {
+  late Future<List<dynamic>> _future;
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
   bool _uploading = false;
-  PlatformFile? _selectedFile;
-  final _titleController = TextEditingController();
-  final _descController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-
-    _sidebarTranslate = Tween<double>(begin: -sidebarWidth, end: 0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
-    );
-
-    _contentTranslate = Tween<double>(begin: 0, end: sidebarWidth).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
-    );
+    _future = ApiService.getNotices();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
     _titleController.dispose();
-    _descController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
-  void _toggleSidebar() {
-    if (_navigating) return;
-    setState(() {
-      _isSidebarOpen = !_isSidebarOpen;
-      _isSidebarOpen ? _controller.forward() : _controller.reverse();
-    });
+  void _reload() {
+    setState(() => _future = ApiService.getNotices());
   }
 
-  Future<void> _handleSidebarNavigation(String route) async {
-    if (_navigating) return;
-    _navigating = true;
-
-    final current = ModalRoute.of(context)?.settings.name;
-    if (current == route) {
-      if (_isSidebarOpen) {
-        await _controller.reverse();
-        setState(() => _isSidebarOpen = false);
-      }
-      _navigating = false;
-      return;
-    }
-
-    if (route == '/login') {
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
-    } else {
-      Navigator.pushReplacementNamed(context, route);
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(const Duration(milliseconds: 250));
-      if (!mounted) return;
-      await _controller.reverse();
-      setState(() => _isSidebarOpen = false);
-      _navigating = false;
-    });
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<bool> _onWillPop() async {
-    String dashboardRoute;
-    switch (widget.role.toLowerCase()) {
-      case "admin":
-        dashboardRoute = '/adminDashboard';
-        break;
-      case "staff":
-        dashboardRoute = '/staffDashboard';
-        break;
-      default:
-        dashboardRoute = '/studentDashboard';
-    }
-    Navigator.pushReplacementNamed(context, dashboardRoute);
-    return false;
-  }
+  Future<void> _showUploadDialog() async {
+    PlatformFile? selectedFile;
 
-  Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Publish Notice'),
+              content: SizedBox(
+                width: 460,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Create a notice for the whole campus and optionally attach a PDF.',
+                        style: TextStyle(color: kTextLight, height: 1.5),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _titleController,
+                        decoration: const InputDecoration(labelText: 'Title'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _descriptionController,
+                        decoration: const InputDecoration(labelText: 'Description'),
+                        minLines: 3,
+                        maxLines: 5,
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: kSurfaceTint,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: kAccentColor.withValues(alpha: 0.35)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Attachment',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              selectedFile?.name ?? 'Attach an optional PDF circular or timetable.',
+                              style: const TextStyle(color: kTextLight, height: 1.4),
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: () async {
+                                final result = await FilePicker.platform.pickFiles(
+                                  type: FileType.custom,
+                                  withData: true,
+                                  allowedExtensions: const ['pdf'],
+                                );
+                                if (result != null && result.files.isNotEmpty) {
+                                  setDialogState(() => selectedFile = result.files.first);
+                                }
+                              },
+                              icon: const Icon(Icons.attach_file_outlined),
+                              label: Text(
+                                selectedFile == null ? 'Choose PDF' : 'Change PDF',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: _uploading ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton.icon(
+                  onPressed: _uploading
+                      ? null
+                      : () async {
+                          Navigator.pop(context);
+                          await _uploadNotice(file: selectedFile);
+                        },
+                  icon: const Icon(Icons.publish_outlined),
+                  label: Text(_uploading ? 'Publishing...' : 'Publish'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
-
-    if (result != null && result.files.isNotEmpty) {
-      setState(() => _selectedFile = result.files.first);
-    }
   }
 
-  Future<void> _uploadNotice() async {
-    if (_titleController.text.isEmpty ||
-        _descController.text.isEmpty ||
-        _selectedFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill all fields and select a file.")),
-      );
+  Future<void> _uploadNotice({PlatformFile? file}) async {
+    if (_titleController.text.trim().isEmpty || _descriptionController.text.trim().isEmpty) {
+      _showMessage('Add a title and description before publishing the notice.');
       return;
     }
 
     setState(() => _uploading = true);
-    await Future.delayed(const Duration(seconds: 1));
-
-    setState(() {
-      notices.insert(0, {
-        "title": _titleController.text,
-        "desc": _descController.text,
-        "file": _selectedFile!.name,
-        "date": "Now",
-      });
-      _uploading = false;
-      _selectedFile = null;
+    try {
+      await ApiService.uploadNotice(
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        fileName: file?.name,
+        bytes: file?.bytes,
+      );
       _titleController.clear();
-      _descController.clear();
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Notice uploaded successfully!")),
-    );
+      _descriptionController.clear();
+      _reload();
+      _showMessage('Notice published successfully.');
+    } catch (error) {
+      _showMessage(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) {
+        setState(() => _uploading = false);
+      }
+    }
   }
 
-  Future<void> _openUploadDialog() async {
-    await showDialog(
+  Future<void> _showAttachmentInfo(Map<String, dynamic> notice) async {
+    final url = notice['attachment_url']?.toString() ?? '';
+    final name = notice['attachment_name']?.toString() ?? '';
+
+    await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text("Upload New Notice",
-            style: TextStyle(
-                color: Color(0xFFB11116), fontWeight: FontWeight.bold)),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(labelText: "Title")),
-              const SizedBox(height: 10),
-              TextField(
-                  controller: _descController,
-                  decoration: const InputDecoration(labelText: "Description"),
-                  maxLines: 2),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _pickFile,
-                icon: const Icon(Icons.attach_file),
-                label: Text(_selectedFile != null
-                    ? _selectedFile!.name
-                    : "Select PDF File"),
-              ),
-            ],
-          ),
+        title: Text(name.isEmpty ? 'Notice Attachment' : name),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Use the link below to open or download the uploaded PDF notice.',
+              style: TextStyle(color: kTextLight, height: 1.5),
+            ),
+            const SizedBox(height: 14),
+            SelectableText(
+              url.isEmpty ? 'No attachment is available for this notice.' : url,
+            ),
+          ],
         ),
         actions: [
+          if (url.isNotEmpty)
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: url));
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+                _showMessage('Attachment link copied.');
+              },
+              icon: const Icon(Icons.copy_outlined),
+              label: const Text('Copy Link'),
+            ),
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: _uploading
-                ? null
-                : () async {
-                    Navigator.pop(context);
-                    await _uploadNotice();
-                  },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFB11116)),
-            child: _uploading
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : const Text("Upload"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Header updated to match other screens (gradient, centered title, dashboard circle)
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 20, bottom: 20), // restored original margins
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14), // restored original padding
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFFFFF), Color(0xFFFFF2F2)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.menu_rounded,
-                color: Color(0xFFB11116), size: 26),
-            onPressed: _toggleSidebar,
-          ),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text(
-              "College Notices",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFB11116),
-              ),
-            ),
-          ),
-          InkWell(
-            borderRadius: BorderRadius.circular(50),
-            onTap: () {
-              switch (widget.role.toLowerCase()) {
-                case "admin":
-                  Navigator.pushReplacementNamed(context, '/adminDashboard');
-                  break;
-                case "staff":
-                  Navigator.pushReplacementNamed(context, '/staffDashboard');
-                  break;
-                default:
-                  Navigator.pushReplacementNamed(context, '/studentDashboard');
-              }
-            },
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: const BoxDecoration(
-                color: Color(0xFFB11116),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.dashboard, color: Colors.white, size: 20),
-            ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -286,110 +217,234 @@ class _NoticesScreenState extends State<NoticesScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isAdmin = widget.role.toLowerCase() == "admin";
+    final isAdmin = widget.role == 'admin';
 
-    return WillPopScope(
-      onWillPop: _onWillPop,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFE9F2FF),
-        floatingActionButton: isAdmin
-            ? FloatingActionButton.extended(
-                onPressed: _openUploadDialog,
-                backgroundColor: const Color(0xFFB11116),
-                icon: const Icon(Icons.upload_file, color: Colors.white),
-                label: const Text("Upload Notice",
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
-              )
-            : null,
-        body: Stack(
-          children: [
-            AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                return Transform.translate(
-                  offset: Offset(_contentTranslate.value, 0),
+    return CollegeScaffold(
+      title: 'College Notices',
+      role: widget.role,
+      floatingActionButton: isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: _uploading ? null : _showUploadDialog,
+              backgroundColor: kPrimaryColor,
+              label: Text(_uploading ? 'Publishing...' : 'Publish Notice'),
+              icon: const Icon(Icons.campaign_outlined),
+            )
+          : null,
+      body: FutureBuilder<List<dynamic>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text(snapshot.error.toString().replaceFirst('Exception: ', '')));
+          }
+
+          final notices = List<Map<String, dynamic>>.from(snapshot.data ?? const []);
+          final attachmentsCount = notices
+              .where((notice) => (notice['attachment_name']?.toString().isNotEmpty ?? false))
+              .length;
+
+          return ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              DashboardHero(
+                title: 'College Circulars',
+                subtitle:
+                    'Important announcements, exam schedules, and official updates loaded directly from the backend.',
+                badges: [
+                  '${notices.length} Notices',
+                  '$attachmentsCount PDF Attachments',
+                  isAdmin ? 'Admin publishing enabled' : 'Read-only notice feed',
+                ],
+              ),
+              const SizedBox(height: 24),
+              SummaryGrid(
+                stats: {
+                  'published_notices': notices.length,
+                  'pdf_attachments': attachmentsCount,
+                  'latest_update': notices.isEmpty ? '-' : _formatDate(notices.first['created_at']),
+                },
+              ),
+              if (isAdmin) ...[
+                const SizedBox(height: 24),
+                ActionCard(
+                  title: 'Publish a New Circular',
+                  description:
+                      'Share official notices with the whole campus and optionally attach a PDF document.',
+                  icon: Icons.upload_file_outlined,
+                  onTap: _showUploadDialog,
+                ),
+              ],
+              const SizedBox(height: 24),
+              const SectionTitle(
+                title: 'Latest Notices',
+                subtitle:
+                    'Every item below is served from the backend and reflects the latest published records.',
+              ),
+              const SizedBox(height: 16),
+              if (notices.isEmpty)
+                const Card(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildHeader(),
-                          const SizedBox(height: 8),
-                          Text(
-                            isAdmin
-                                ? "Manage and upload official circulars and announcements."
-                                : "View official circulars, updates, and important information.",
-                            style: const TextStyle(
-                                fontSize: 16, color: Colors.black54),
-                          ),
-                          const SizedBox(height: 20),
-                          if (notices.isEmpty)
-                            const Center(
-                                child: Text("No notices available.",
-                                    style: TextStyle(color: Colors.black54)))
-                          else
-                            Column(
-                              children: notices
-                                  .map((n) => Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 16),
-                                        child: _NoticeCard(
-                                          title: n["title"]!,
-                                          desc: n["desc"]!,
-                                          file: n["file"]!,
-                                          date: n["date"]!,
-                                          onDownload: () {
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              SnackBar(
-                                                  content: Text(
-                                                      "Downloading ${n["file"]!}...")),
-                                            );
-                                          },
-                                        ),
-                                      ))
-                                  .toList(),
-                            ),
-                          const SizedBox(height: 80),
-                        ],
-                      ),
+                    padding: EdgeInsets.all(24),
+                    child: Text('No notices have been published yet.'),
+                  ),
+                )
+              else
+                ...notices.map(
+                  (notice) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _NoticeCard(
+                      notice: notice,
+                      onAttachmentTap: () => _showAttachmentInfo(notice),
                     ),
                   ),
-                );
-              },
-            ),
-            IgnorePointer(
-              ignoring: !_isSidebarOpen,
-              child: AnimatedOpacity(
-                opacity: _isSidebarOpen ? 1 : 0,
-                duration: const Duration(milliseconds: 200),
-                child: GestureDetector(
-                  onTap: _toggleSidebar,
-                  child: Container(color: Colors.black26),
                 ),
-              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _NoticeCard extends StatelessWidget {
+  const _NoticeCard({
+    required this.notice,
+    required this.onAttachmentTap,
+  });
+
+  final Map<String, dynamic> notice;
+  final VoidCallback onAttachmentTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final attachmentName = notice['attachment_name']?.toString() ?? '';
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFFFFF), Color(0xFFFFFBF7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: kPrimaryColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.notifications_active_outlined, color: kPrimaryColor),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        notice['title']?.toString() ?? 'Notice',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: kTextDark,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        notice['description']?.toString() ?? '',
+                        style: const TextStyle(height: 1.6, color: kTextLight),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                return Transform.translate(
-                  offset: Offset(_sidebarTranslate.value, 0),
-                  child: child,
-                );
-              },
-              child: RepaintBoundary(
-                child: SizedBox(
-                  width: sidebarWidth,
-                  height: MediaQuery.of(context).size.height,
-                  child: Sidebar(
-                    role: widget.role,
-                    onNavigate: _handleSidebarNavigation,
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _MetaChip(
+                  icon: Icons.person_outline,
+                  label: notice['created_by_name']?.toString() ?? 'Admin',
+                ),
+                _MetaChip(
+                  icon: Icons.schedule_outlined,
+                  label: _formatDate(notice['created_at']),
+                ),
+              ],
+            ),
+            if (attachmentName.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: onAttachmentTap,
+                child: Ink(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: kSurfaceTint,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: kAccentColor.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: kPrimaryColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.picture_as_pdf_outlined, color: kPrimaryColor),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Attached Document',
+                              style: TextStyle(
+                                color: kTextLight,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              attachmentName,
+                              style: const TextStyle(
+                                color: kTextDark,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.open_in_new_outlined, color: kPrimaryColor),
+                    ],
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -397,55 +452,60 @@ class _NoticesScreenState extends State<NoticesScreen>
   }
 }
 
-class _NoticeCard extends StatelessWidget {
-  final String title, desc, file, date;
-  final VoidCallback? onDownload;
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({required this.icon, required this.label});
 
-  const _NoticeCard({
-    Key? key,
-    required this.title,
-    required this.desc,
-    required this.file,
-    required this.date,
-    this.onDownload,
-  }) : super(key: key);
+  final IconData icon;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    // Restored original sizing & padding exactly as before
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16), // original padding
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        // border removed per your request
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFB11116))),
-          const SizedBox(height: 8),
-          Text(desc, style: const TextStyle(color: Colors.black87, fontSize: 15)),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(date, style: const TextStyle(color: Colors.black54)),
-              TextButton.icon(
-                onPressed: onDownload,
-                icon: const Icon(Icons.download, size: 18, color: Colors.purple),
-                label: const Text("Download", style: TextStyle(color: Colors.purple)),
-              ),
-            ],
-          ),
+          Icon(icon, size: 16, color: kPrimaryColor),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(color: kTextDark, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
+}
+
+String _formatDate(dynamic rawValue) {
+  final raw = rawValue?.toString() ?? '';
+  if (raw.isEmpty) {
+    return '-';
+  }
+
+  final parsed = DateTime.tryParse(raw)?.toLocal();
+  if (parsed == null) {
+    return raw.replaceFirst('T', ' ');
+  }
+
+  const months = <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final hour = parsed.hour % 12 == 0 ? 12 : parsed.hour % 12;
+  final minute = parsed.minute.toString().padLeft(2, '0');
+  final suffix = parsed.hour >= 12 ? 'PM' : 'AM';
+  return '${parsed.day} ${months[parsed.month - 1]} ${parsed.year} | $hour:$minute $suffix';
 }

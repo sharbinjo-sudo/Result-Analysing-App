@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:jwt_decode/jwt_decode.dart';
 
 import '../services/api_service.dart';
+import '../utils/routes.dart';
 import '../utils/storage.dart';
 
 class LoginPage extends StatefulWidget {
@@ -14,232 +14,216 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
   bool _loading = false;
   bool _showPassword = false;
 
-  Future<void> handleLogin() async {
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
-
     if (username.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter username and password")),
-      );
+      _showMessage('Enter your username and password.');
       return;
     }
 
     setState(() => _loading = true);
-
     try {
       final data = await ApiService.login(username, password);
-      final accessToken = data["access"];
-
-      await SecureStorage.saveToken(accessToken);
-
-      final decodedToken = Jwt.parseJwt(accessToken);
-      final role = decodedToken["role"];
-
-      SecureStorage.setRole(role);
-
-      setState(() => _loading = false);
-
-      // 🔥 RESET STACK ON LOGIN
-      if (role == "admin") {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          "/adminDashboard",
-          (_) => false,
-        );
-      } else if (role == "staff") {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          "/staffDashboard",
-          (_) => false,
-        );
-      } else if (role == "student") {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          "/studentDashboard",
-          (_) => false,
-        );
-      } else {
-        await SecureStorage.deleteToken();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Unauthorized role")),
-        );
-      }
-    } catch (e) {
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Invalid credentials")),
+      await SecureStorage.saveSession(
+        accessToken: data['access'] as String,
+        refreshToken: data['refresh'] as String,
       );
+
+      if (!mounted) return;
+      final role = data['role'] as String? ?? 'student';
+      final route = AppRoutes.homeForRole(role);
+      Navigator.pushNamedAndRemoveUntil(context, route, (_) => false);
+    } catch (error) {
+      _showMessage(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
-    final isSmall = MediaQuery.of(context).size.width < 400;
+    final isWide = MediaQuery.of(context).size.width >= 900;
 
-    return WillPopScope(
-      // ✅ Allow back button to CLOSE app (not navigate back)
-      onWillPop: () async => true,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFE9F2FF),
-        body: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Container(
-              width: isSmall ? double.infinity : 400,
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  )
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFB11116),
-                        width: 2,
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(10),
-                    child: Image.asset(
-                      'assets/images/vvcoe_logo.jpg',
-                      height: 70,
-                      width: 70,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  const Text(
-                    "V V College of Engineering",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFB11116),
-                    ),
-                  ),
-
-                  const SizedBox(height: 6),
-
-                  const Text(
-                    "Result Analysis System",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.black54,
-                    ),
-                  ),
-
-                  const SizedBox(height: 28),
-
-                  TextField(
-                    controller: _usernameController,
-                    decoration: InputDecoration(
-                      labelText: "Username",
-                      prefixIcon: const Icon(
-                        Icons.person_outline,
-                        color: Color(0xFFB11116),
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFFF9F9F9),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: !_showPassword,
-                    decoration: InputDecoration(
-                      labelText: "Password",
-                      prefixIcon: const Icon(
-                        Icons.lock_outline,
-                        color: Color(0xFFB11116),
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _showPassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(() => _showPassword = !_showPassword);
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFFF9F9F9),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : handleLogin,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFB11116),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: _loading
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.3,
-                              ),
-                            )
-                          : const Text(
-                              "Login",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  const Text(
-                    "Only authorized users can log in",
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontSize: 12.5,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF6FBFF), Color(0xFFFFF3EE)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1080),
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: isWide ? _buildWideLayout() : _buildStackedLayout(),
+                ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWideLayout() {
+    return Row(
+      children: [
+        Expanded(child: _buildHeroPane()),
+        Expanded(child: _buildFormPane()),
+      ],
+    );
+  }
+
+  Widget _buildStackedLayout() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildHeroPane(compact: true),
+        _buildFormPane(),
+      ],
+    );
+  }
+
+  Widget _buildHeroPane({bool compact = false}) {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF8F0D12), Color(0xFFB11116), Color(0xFFD56F64)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Image.asset(
+              'assets/images/vvcoe_logo.jpg',
+              width: compact ? 88 : 108,
+              height: compact ? 88 : 108,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'V V College of Engineering',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: compact ? 26 : 34,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Result and Analysis Portal',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Students, staff, and administrators can work from one shared system with synced academic data and secure role-based access.',
+            style: TextStyle(
+              color: Colors.white70,
+              height: 1.6,
+              fontSize: 15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormPane() {
+    return Padding(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Sign in',
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1F2937),
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Use your authorized college account to continue.',
+            style: TextStyle(color: Color(0xFF6B7280), height: 1.5),
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _usernameController,
+            decoration: const InputDecoration(
+              labelText: 'Username',
+              prefixIcon: Icon(Icons.person_outline),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _passwordController,
+            obscureText: !_showPassword,
+            decoration: InputDecoration(
+              labelText: 'Password',
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                onPressed: () => setState(() => _showPassword = !_showPassword),
+                icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
+              ),
+            ),
+            onSubmitted: (_) => _loading ? null : _handleLogin(),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _loading ? null : _handleLogin,
+              child: _loading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Login'),
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Contact the college administration if your account is pending approval.',
+            style: TextStyle(color: Color(0xFF6B7280)),
+          ),
+        ],
       ),
     );
   }

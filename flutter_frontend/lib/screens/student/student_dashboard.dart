@@ -1,363 +1,316 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../../widgets/sidebar.dart';
 
-class StudentDashboard extends StatefulWidget {
+import '../../services/api_service.dart';
+import '../../theme.dart';
+import '../../widgets/college_scaffold.dart';
+import '../../widgets/dashboard_parts.dart';
+
+bool _isAxisIndex(double value) {
+  return (value - value.roundToDouble()).abs() < 0.001;
+}
+
+class StudentDashboard extends StatelessWidget {
   const StudentDashboard({super.key});
 
   @override
-  State<StudentDashboard> createState() => _StudentDashboardState();
+  Widget build(BuildContext context) {
+    return CollegeScaffold(
+      title: 'Student Dashboard',
+      role: 'student',
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: ApiService.getDashboardSummary(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return _DashboardError(message: snapshot.error.toString());
+          }
+
+          final data = snapshot.data ?? <String, dynamic>{};
+          final stats = Map<String, dynamic>.from(data['stats'] as Map? ?? {});
+          final overview = Map<String, dynamic>.from(data['student_overview'] as Map? ?? {});
+          final trend = List<Map<String, dynamic>>.from(data['trend'] as List? ?? const []);
+          final recentNotices =
+              List<Map<String, dynamic>>.from(data['recent_notices'] as List? ?? const []);
+          final latestResults =
+              List<Map<String, dynamic>>.from(data['latest_results'] as List? ?? const []);
+          final welcomeName = (data['welcome_name'] as String?) ?? 'Student';
+
+          return ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              DashboardHero(
+                title: 'Welcome, $welcomeName',
+                subtitle:
+                    'Track semester performance, stay updated with notices, and review your academic progress from live college data.',
+                badges: [
+                  overview['department']?.toString() ?? '-',
+                  'Year ${overview['year_of_study'] ?? '-'}',
+                  'Section ${overview['section'] ?? '-'}',
+                ],
+              ),
+              const SizedBox(height: 24),
+              SummaryGrid(stats: stats),
+              const SizedBox(height: 28),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth > 900;
+                  final trendChart = _TrendCard(trend: trend);
+                  final profilePanel = KeyValuePanel(
+                    title: 'Academic Snapshot',
+                    icon: Icons.school_outlined,
+                    items: [
+                      MapEntry('Register Number', overview['register_number']?.toString() ?? '-'),
+                      MapEntry('Department', overview['department']?.toString() ?? '-'),
+                      MapEntry('Year of Study', '${overview['year_of_study'] ?? '-'}'),
+                      MapEntry('Section', overview['section']?.toString() ?? '-'),
+                    ],
+                  );
+
+                  if (wide) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 2, child: trendChart),
+                        const SizedBox(width: 16),
+                        Expanded(child: profilePanel),
+                      ],
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      trendChart,
+                      const SizedBox(height: 16),
+                      profilePanel,
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 28),
+              const SectionTitle(
+                title: 'Quick Access',
+                subtitle: 'The familiar student flow is preserved here with a cleaner production look.',
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  ActionCard(
+                    title: 'My Results',
+                    description: 'See semester-wise marks and printable result tables.',
+                    icon: Icons.grade_outlined,
+                    onTap: () => Navigator.pushReplacementNamed(context, '/studentResults'),
+                  ),
+                  ActionCard(
+                    title: 'Performance Analysis',
+                    description: 'Track semester trends and last semester subject performance.',
+                    icon: Icons.analytics_outlined,
+                    onTap: () => Navigator.pushReplacementNamed(context, '/studentAnalysis'),
+                  ),
+                  ActionCard(
+                    title: 'Profile',
+                    description: 'Check your academic and account details.',
+                    icon: Icons.person_outline,
+                    onTap: () => Navigator.pushReplacementNamed(context, '/studentProfile'),
+                  ),
+                  ActionCard(
+                    title: 'College Notices',
+                    description: 'Read official updates published by the admin team.',
+                    icon: Icons.notifications_outlined,
+                    onTap: () => Navigator.pushReplacementNamed(context, '/collegeNoticesStudent'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth > 900;
+                  final notices = TimelineList(
+                    title: 'Recent Notices',
+                    items: recentNotices
+                        .map(
+                          (item) => {
+                            'title': item['title'],
+                            'detail':
+                                '${item['created_by_name'] ?? 'Admin'} | ${(item['created_at'] ?? '').toString().replaceFirst('T', ' ')}',
+                            'description': item['description'],
+                          },
+                        )
+                        .toList(),
+                    emptyLabel: 'No notices published yet.',
+                  );
+                  final results = TimelineList(
+                    title: 'Latest Semester Results',
+                    items: latestResults
+                        .map(
+                          (item) => {
+                            'title': item['subject_name'],
+                            'detail':
+                                '${item['subject_code']} | Marks ${item['marks']} | Grade ${item['grade']}',
+                          },
+                        )
+                        .toList(),
+                    emptyLabel: 'Results will appear after your records are uploaded.',
+                  );
+                  if (wide) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: notices),
+                        const SizedBox(width: 16),
+                        Expanded(child: results),
+                      ],
+                    );
+                  }
+                  return Column(
+                    children: [
+                      notices,
+                      const SizedBox(height: 16),
+                      results,
+                    ],
+                  );
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _StudentDashboardState extends State<StudentDashboard>
-    with SingleTickerProviderStateMixin {
-  static const double sidebarWidth = 240;
-  late final AnimationController _controller;
-  late final Animation<double> _sidebarTranslate;
-  late final Animation<double> _contentTranslate;
-  bool _isOpen = false;
-  bool _navigating = false;
+class _TrendCard extends StatelessWidget {
+  const _TrendCard({required this.trend});
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
+  final List<Map<String, dynamic>> trend;
 
-    _sidebarTranslate = Tween<double>(begin: -sidebarWidth, end: 0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
-    );
-
-    _contentTranslate = Tween<double>(begin: 0, end: sidebarWidth).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
-    );
-  }
-
-  void _toggleSidebar() {
-    if (_navigating) return;
-    setState(() {
-      _isOpen = !_isOpen;
-      _isOpen ? _controller.forward() : _controller.reverse();
-    });
-  }
-
-  Future<void> _handleSidebarNavigation(String route) async {
-    if (_navigating) return;
-    _navigating = true;
-
-    if (ModalRoute.of(context)?.settings.name == route) {
-      await _controller.reverse();
-      setState(() => _isOpen = false);
-      _navigating = false;
-      return;
-    }
-
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, route);
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (mounted) {
-        await _controller.reverse();
-        setState(() => _isOpen = false);
-      }
-      _navigating = false;
-    });
-  }
-
-  Future<bool> _onWillPop() async {
-    if (_isOpen) {
-      _toggleSidebar();
-      return false;
-    }
-
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text(
-          "Exit App?",
-          style: TextStyle(
-            color: Color(0xFFB11116),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: const Text("Do you really want to close the app?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              "Exit",
-              style: TextStyle(color: Color(0xFFB11116)),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldExit == true) SystemNavigator.pop();
-    return false;
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  /// ✅ Clean gradient header with perfect center alignment
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFFFFFF), Color(0xFFFFF2F2)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
-          ],
-        ),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.menu_rounded,
-                  color: Color(0xFFB11116), size: 30),
-              onPressed: _toggleSidebar,
-              tooltip: 'Menu',
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                "Welcome, Student 👋",
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFB11116),
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ),
-            InkWell(
-              customBorder: const CircleBorder(),
-              onTap: () =>
-                  Navigator.pushReplacementNamed(context, '/studentProfile'),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 46,
-                height: 46,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFB11116),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                        color: Color(0x33B11116),
-                        blurRadius: 8,
-                        offset: Offset(0, 3))
-                  ],
-                ),
-                child: const Icon(Icons.person, color: Colors.white, size: 22),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// ✅ Clean white cards (adaptive)
-  Widget _buildCard({
-    required String title,
-    required String description,
-    required IconData icon,
-    required Color color,
-    required String route,
-  }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => _handleSidebarNavigation(route),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-        width: 260,
-        height: 160,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 8,
-              offset: Offset(2, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 40),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Colors.black54,
-                height: 1.3,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// ✅ Main layout (adaptive for all screens)
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: _onWillPop,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFE9F2FF), // your chosen screen color
-        body: Stack(
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                return Transform.translate(
-                  offset: Offset(_contentTranslate.value, 0),
-                  child: Column(
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 20),
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final isMobile = constraints.maxWidth < 700;
-
-                            return SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
-                              physics: const BouncingScrollPhysics(),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  const Text(
-                                    "Here’s your academic summary and quick actions:",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 30),
-                                  Wrap(
-                                    alignment: WrapAlignment.center,
-                                    spacing: 24,
-                                    runSpacing: 24,
-                                    direction: isMobile
-                                        ? Axis.vertical
-                                        : Axis.horizontal,
-                                    children: [
-                                      _buildCard(
-                                        title: "My Results",
-                                        description:
-                                            "View your semester-wise marks and grades.",
-                                        icon: Icons.grade_outlined,
-                                        color: Colors.blue,
-                                        route: '/studentResults',
-                                      ),
-                                      _buildCard(
-                                        title: "Analysis",
-                                        description:
-                                            "Check your performance trend and subject averages.",
-                                        icon: Icons.analytics_outlined,
-                                        color: Colors.orange,
-                                        route: '/studentAnalysis',
-                                      ),
-                                      _buildCard(
-                                        title: "Profile",
-                                        description:
-                                            "View your personal details and logout safely.",
-                                        icon: Icons.person_outline,
-                                        color: Colors.green,
-                                        route: '/studentProfile',
-                                      ),
-                                      _buildCard(
-                                        title: "College Notices",
-                                        description:
-                                            "Access official circulars and announcements.",
-                                        icon: Icons.notifications_outlined,
-                                        color: Colors.purple,
-                                        route: '/collegeNoticesStudent',
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
+            const Text(
+              'Semester Performance',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Average marks and GPA are loaded from your saved result history.',
+              style: TextStyle(color: kTextLight, height: 1.5),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              height: 280,
+              child: trend.isEmpty
+                  ? const Center(child: Text('No performance data yet.'))
+                  : LineChart(
+                      LineChartData(
+                        minY: 0,
+                        maxY: 100,
+                        gridData: FlGridData(
+                          show: true,
+                          horizontalInterval: 20,
+                          drawVerticalLine: false,
+                          getDrawingHorizontalLine: (value) => FlLine(
+                            color: Colors.grey.withValues(alpha: 0.2),
+                            strokeWidth: 1,
+                          ),
                         ),
+                        borderData: FlBorderData(show: false),
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 34,
+                              interval: 20,
+                              getTitlesWidget: (value, meta) => Text(
+                                value.toInt().toString(),
+                                style: const TextStyle(color: kTextLight, fontSize: 11),
+                              ),
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              interval: 1,
+                              getTitlesWidget: (value, meta) {
+                                if (!_isAxisIndex(value)) {
+                                  return const SizedBox.shrink();
+                                }
+                                final index = value.toInt();
+                                if (index < 0 || index >= trend.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    trend[index]['label']?.toString() ?? '',
+                                    style: const TextStyle(color: kTextLight, fontSize: 11),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: [
+                              for (var i = 0; i < trend.length; i++)
+                                FlSpot(
+                                  i.toDouble(),
+                                  (trend[i]['average_marks'] as num?)?.toDouble() ?? 0,
+                                ),
+                            ],
+                            color: kPrimaryColor,
+                            barWidth: 4,
+                            dotData: const FlDotData(show: true),
+                            isCurved: true,
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: kPrimaryColor.withValues(alpha: 0.1),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
-
-            // overlay
-            IgnorePointer(
-              ignoring: !_isOpen,
-              child: AnimatedOpacity(
-                opacity: _isOpen ? 1 : 0,
-                duration: const Duration(milliseconds: 200),
-                child: GestureDetector(
-                  onTap: _toggleSidebar,
-                  child: Container(color: Colors.black26),
-                ),
-              ),
-            ),
-
-            // sidebar
-            AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                return Transform.translate(
-                  offset: Offset(_sidebarTranslate.value, 0),
-                  child: SizedBox(
-                    width: sidebarWidth,
-                    height: MediaQuery.of(context).size.height,
-                    child: Sidebar(
-                      role: "student",
-                      onNavigate: _handleSidebarNavigation,
                     ),
-                  ),
-                );
-              },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardError extends StatelessWidget {
+  const _DashboardError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 44, color: Color(0xFFB11116)),
+            const SizedBox(height: 12),
+            const Text(
+              'Unable to load dashboard right now.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(message.replaceFirst('Exception: ', '')),
           ],
         ),
       ),

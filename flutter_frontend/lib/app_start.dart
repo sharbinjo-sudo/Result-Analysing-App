@@ -1,34 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:jwt_decode/jwt_decode.dart';
 
+import 'utils/routes.dart';
 import 'utils/storage.dart';
 
 class AppStart extends StatelessWidget {
   const AppStart({super.key});
 
   Future<String> _decideStartRoute() async {
-    final token = await SecureStorage.getToken();
-
-    if (token == null) {
-      return '/login';
+    final loggedIn = await SecureStorage.isLoggedIn();
+    if (!loggedIn) {
+      await SecureStorage.clearSession();
+      return AppRoutes.login;
     }
 
-    // Token exists → check expiry
-    if (Jwt.isExpired(token)) {
-      await SecureStorage.deleteToken();
-      return '/login';
+    final role = await SecureStorage.getRole();
+    final route = AppRoutes.homeForRole(role);
+    if (route == AppRoutes.login) {
+      await SecureStorage.clearSession();
     }
-
-    final decoded = Jwt.parseJwt(token);
-    final role = decoded['role'];
-
-    if (role == 'admin') return '/adminDashboard';
-    if (role == 'staff') return '/staffDashboard';
-    if (role == 'student') return '/studentDashboard';
-
-    // Fallback
-    await SecureStorage.deleteToken();
-    return '/login';
+    return route;
   }
 
   @override

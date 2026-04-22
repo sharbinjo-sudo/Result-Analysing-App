@@ -1,482 +1,419 @@
-import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../../widgets/sidebar.dart';
+import 'package:flutter/material.dart';
 
-class ClassAnalysisScreen extends StatefulWidget {
+import '../../services/api_service.dart';
+import '../../theme.dart';
+import '../../widgets/college_scaffold.dart';
+import '../../widgets/dashboard_parts.dart';
+
+bool _isAxisIndex(double value) {
+  return (value - value.roundToDouble()).abs() < 0.001;
+}
+
+class ClassAnalysisScreen extends StatelessWidget {
   const ClassAnalysisScreen({super.key});
 
   @override
-  State<ClassAnalysisScreen> createState() => _ClassAnalysisScreenState();
-}
+  Widget build(BuildContext context) {
+    return CollegeScaffold(
+      title: 'Class Analysis',
+      role: 'staff',
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: ApiService.getClassAnalysis(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text(snapshot.error.toString().replaceFirst('Exception: ', '')));
+          }
 
-class _ClassAnalysisScreenState extends State<ClassAnalysisScreen>
-    with SingleTickerProviderStateMixin {
-  static const double sidebarWidth = 240;
-  late final AnimationController _controller;
-  late final Animation<double> _sidebarTranslate;
-  late final Animation<double> _contentTranslate;
-  bool _isOpen = false;
-  bool _navigating = false;
+          final data = snapshot.data ?? <String, dynamic>{};
+          final subjects = List<Map<String, dynamic>>.from(
+            data['subject_averages'] as List? ?? const [],
+          );
+          final toppers = List<Map<String, dynamic>>.from(
+            data['top_performers'] as List? ?? const [],
+          );
+          final semesterStats = List<Map<String, dynamic>>.from(
+            data['semester_stats'] as List? ?? const [],
+          );
+          final recentResults = List<Map<String, dynamic>>.from(
+            data['recent_results'] as List? ?? const [],
+          );
+          final marksBands = Map<String, dynamic>.from(data['marks_bands'] as Map? ?? const {});
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-
-    _sidebarTranslate = Tween<double>(begin: -sidebarWidth, end: 0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
-    );
-
-    _contentTranslate = Tween<double>(begin: 0, end: sidebarWidth).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
-    );
-  }
-
-  void _toggleSidebar() {
-    if (_navigating) return;
-    setState(() {
-      _isOpen = !_isOpen;
-      _isOpen ? _controller.forward() : _controller.reverse();
-    });
-  }
-
-  Future<void> _handleSidebarNavigation(String route) async {
-    if (_navigating) return;
-    _navigating = true;
-
-    if (ModalRoute.of(context)?.settings.name == route) {
-      await _controller.reverse();
-      setState(() => _isOpen = false);
-      _navigating = false;
-      return;
-    }
-
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, route);
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(const Duration(milliseconds: 250));
-      if (mounted) {
-        await _controller.reverse();
-        setState(() => _isOpen = false);
-      }
-      _navigating = false;
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
- Widget _buildHeader(BoxConstraints constraints) {
-  final double screenWidth = constraints.maxWidth;
-  final bool isMobile = screenWidth < 600;
-
-  return Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-    child: Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 20,
-        vertical: 14,
-      ),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFFFFF), Color(0xFFFFF2F2)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Sidebar toggle button
-          IconButton(
-            icon: const Icon(Icons.menu_rounded,
-                color: Color(0xFFB11116), size: 28),
-            onPressed: _toggleSidebar,
-            tooltip: 'Menu',
-          ),
-
-          // Centered title
-          Expanded(
-            child: Center(
-              child: Text(
-                "Class Performance Analysis",
-                textAlign: TextAlign.center,
-                softWrap: true,
-                overflow: TextOverflow.visible,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFB11116),
-                ),
+          return ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              const SectionTitle(
+                title: 'Class Overview',
+                subtitle: 'These charts are generated directly from all uploaded result rows in the backend.',
               ),
-            ),
-          ),
-
-          // Dashboard button (same)
-          InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () {
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/staffDashboard',
-                (route) => false,
-              );
-            },
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                color: Color(0xFFB11116),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                      color: Color(0x33B11116),
-                      blurRadius: 8,
-                      offset: Offset(0, 3))
-                ],
+              const SizedBox(height: 16),
+              SummaryGrid(
+                stats: {
+                  'pass_percentage': '${data['pass_percentage'] ?? 0}%',
+                  'fail_percentage': '${data['fail_percentage'] ?? 0}%',
+                  'subjects_covered': subjects.length,
+                  'recent_entries': recentResults.length,
+                },
               ),
-              child: const Icon(Icons.dashboard, color: Colors.white, size: 20),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-
-  Widget _buildContent(BoxConstraints constraints) {
-    final bool isMobile = constraints.maxWidth < 600;
-    final double chartHeight = isMobile ? 180 : 220;
-    final double barHeight = isMobile ? 240 : 280;
-
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, 8, isMobile ? 16 : 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          const Text(
-            "Overall Class Performance",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFB11116),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
-              ],
-            ),
-            child: SizedBox(
-              height: chartHeight,
-              child: PieChart(
-                PieChartData(
-                  sectionsSpace: 3,
-                  centerSpaceRadius: isMobile ? 36 : 44,
-                  sections: [
-                    PieChartSectionData(
-                      color: Colors.green,
-                      value: 78,
-                      title: "Pass 78%",
-                      radius: isMobile ? 60 : 70,
-                      titleStyle: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+              const SizedBox(height: 28),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth > 920;
+                  final marksBandChart = _MarksBandChart(marksBands: marksBands);
+                  final semesterChart = _SemesterStatsChart(semesterStats: semesterStats);
+                  if (wide) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: marksBandChart),
+                        const SizedBox(width: 16),
+                        Expanded(child: semesterChart),
+                      ],
+                    );
+                  }
+                  return Column(
+                    children: [
+                      marksBandChart,
+                      const SizedBox(height: 16),
+                      semesterChart,
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 28),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Subject-wise Average Marks',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                    ),
-                    PieChartSectionData(
-                      color: Colors.redAccent,
-                      value: 22,
-                      title: "Fail 22%",
-                      radius: isMobile ? 60 : 70,
-                      titleStyle: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Use this to identify which subjects are underperforming or consistently strong.',
+                        style: TextStyle(color: kTextLight, height: 1.5),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 36),
-          const Text(
-            "Subject-wise Average Marks",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFB11116),
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // ✅ Fixed Chart Container (with Y-axis 1–100)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
-              ],
-            ),
-            child: SizedBox(
-              height: barHeight,
-              width: double.infinity,
-              child: BarChart(
-                BarChartData(
-                  minY: 1,
-                  maxY: 100,
-                  alignment: BarChartAlignment.spaceEvenly,
-                  borderData: FlBorderData(show: false),
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    horizontalInterval: 20,
-                    getDrawingHorizontalLine: (value) => FlLine(
-                      color: Colors.grey[300],
-                      strokeWidth: 1,
-                    ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 340,
+                        child: subjects.isEmpty
+                            ? const Center(child: Text('No subject data available.'))
+                            : BarChart(
+                                BarChartData(
+                                  maxY: 100,
+                                  gridData: FlGridData(
+                                    show: true,
+                                    drawVerticalLine: false,
+                                    horizontalInterval: 20,
+                                    getDrawingHorizontalLine: (value) => FlLine(
+                                      color: Colors.grey.withValues(alpha: 0.18),
+                                      strokeWidth: 1,
+                                    ),
+                                  ),
+                                  borderData: FlBorderData(show: false),
+                                  titlesData: FlTitlesData(
+                                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                    leftTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        interval: 20,
+                                        reservedSize: 34,
+                                        getTitlesWidget: (value, meta) => Text(
+                                          value.toInt().toString(),
+                                          style: const TextStyle(fontSize: 11, color: kTextLight),
+                                        ),
+                                      ),
+                                    ),
+                                    bottomTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        interval: 1,
+                                        reservedSize: 52,
+                                        getTitlesWidget: (value, meta) {
+                                          if (!_isAxisIndex(value)) {
+                                            return const SizedBox.shrink();
+                                          }
+                                          final index = value.toInt();
+                                          if (index < 0 || index >= subjects.length) {
+                                            return const SizedBox.shrink();
+                                          }
+                                          return Padding(
+                                            padding: const EdgeInsets.only(top: 8),
+                                            child: Text(
+                                              subjects[index]['subject_name']?.toString() ?? '',
+                                              style: const TextStyle(fontSize: 10, color: kTextLight),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  barGroups: [
+                                    for (var i = 0; i < subjects.length; i++)
+                                      BarChartGroupData(
+                                        x: i,
+                                        barRods: [
+                                          BarChartRodData(
+                                            toY: (subjects[i]['average_marks'] as num?)?.toDouble() ?? 0,
+                                            width: 22,
+                                            borderRadius: BorderRadius.circular(8),
+                                            gradient: const LinearGradient(
+                                              colors: [Color(0xFF8F0D12), Color(0xFFDA7A6C)],
+                                              begin: Alignment.bottomCenter,
+                                              end: Alignment.topCenter,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ],
                   ),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        interval: 20,
-                        getTitlesWidget: (value, _) {
-                          if (value == 0) return const SizedBox.shrink();
-                          if (value == 100) {
-                            return const Text(
-                              "100",
-                              style: TextStyle(fontSize: 12, color: Colors.black87),
-                            );
-                          }
-                          return Text(
-                            value.toInt().toString(),
-                            style: const TextStyle(fontSize: 12, color: Colors.black54),
-                          );
-                        },
-                        reservedSize: 30,
-                      ),
-                    ),
-                    rightTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, _) {
-                          const subjects = ["Maths", "DS", "OOPS", "DBMS", "CN"];
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              subjects[value.toInt() % subjects.length],
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 28),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final topperPanel = KeyValuePanel(
+                    title: 'Top Performers',
+                    icon: Icons.star_outline,
+                    items: toppers
+                        .map(
+                          (topper) => MapEntry(
+                            topper['name']?.toString() ?? '-',
+                            '${topper['register_number'] ?? ''} | CGPA ${topper['cgpa'] ?? 0}',
+                          ),
+                        )
+                        .toList(),
+                  );
+                  final recentPanel = TimelineList(
+                    title: 'Recent Result Activity',
+                    items: recentResults
+                        .map(
+                          (item) => {
+                            'title': item['student_name'],
+                            'detail':
+                                '${item['register_number']} | ${item['subject_name']} | S${item['semester']} | ${item['marks']}',
+                          },
+                        )
+                        .toList(),
+                    emptyLabel: 'Recent result uploads will appear here.',
+                  );
+                  if (constraints.maxWidth > 920) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: topperPanel),
+                        const SizedBox(width: 16),
+                        Expanded(child: recentPanel),
+                      ],
+                    );
+                  }
+                  return Column(
+                    children: [
+                      topperPanel,
+                      const SizedBox(height: 16),
+                      recentPanel,
+                    ],
+                  );
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MarksBandChart extends StatelessWidget {
+  const _MarksBandChart({required this.marksBands});
+
+  final Map<String, dynamic> marksBands;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = marksBands.entries.toList();
+    final colors = <Color>[
+      const Color(0xFF3D9970),
+      const Color(0xFFE8B24F),
+      const Color(0xFFC95B4B),
+      const Color(0xFF8F0D12),
+    ];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Marks Band Distribution', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text(
+              'This shows how many saved results fall into each marks range.',
+              style: TextStyle(color: kTextLight, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 280,
+              child: entries.isEmpty
+                  ? const Center(child: Text('No marks band data available.'))
+                  : PieChart(
+                      PieChartData(
+                        centerSpaceRadius: 54,
+                        sectionsSpace: 4,
+                        sections: [
+                          for (var i = 0; i < entries.length; i++)
+                            PieChartSectionData(
+                              color: colors[i % colors.length],
+                              value: (entries[i].value as num?)?.toDouble() ?? 0,
+                              title: '${entries[i].value}',
+                              radius: 78,
+                              titleStyle: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  barGroups: [
-                    BarChartGroupData(x: 0, barRods: [
-                      BarChartRodData(toY: 82, width: 22, color: const Color(0xFFB11116))
-                    ]),
-                    BarChartGroupData(x: 1, barRods: [
-                      BarChartRodData(toY: 76, width: 22, color: const Color(0xFFB11116))
-                    ]),
-                    BarChartGroupData(x: 2, barRods: [
-                      BarChartRodData(toY: 88, width: 22, color: const Color(0xFFB11116))
-                    ]),
-                    BarChartGroupData(x: 3, barRods: [
-                      BarChartRodData(toY: 91, width: 22, color: const Color(0xFFB11116))
-                    ]),
-                    BarChartGroupData(x: 4, barRods: [
-                      BarChartRodData(toY: 79, width: 22, color: const Color(0xFFB11116))
-                    ]),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 36),
-          const Text(
-            "Top Performers",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFB11116),
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          LayoutBuilder(
-            builder: (context, box) {
-              final isNarrow = box.maxWidth < 700;
-              return Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                alignment: isNarrow ? WrapAlignment.center : WrapAlignment.start,
-                children: const [
-                  TopperCard(name: "A. Karthik", regNo: "VV2025CSE003", gpa: 9.3),
-                  TopperCard(name: "S. Meena", regNo: "VV2025CSE005", gpa: 9.2),
-                  TopperCard(name: "R. Aravind", regNo: "VV2025CSE008", gpa: 9.1),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 30),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/staffDashboard',
-          (route) => false,
-        );
-        return false;
-      },
-      child: Scaffold(
-        backgroundColor: const Color(0xFFE9F2FF), // ✅ consistent soft blue background
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(
-              children: [
-                AnimatedBuilder(
-                  animation: _controller,
-                  builder: (context, _) {
-                    return Transform.translate(
-                      offset: Offset(_contentTranslate.value, 0),
-                      child: Column(
-                        children: [
-                          _buildHeader(constraints),
-                          Expanded(child: _buildContent(constraints)),
                         ],
                       ),
-                    );
-                  },
-                ),
-                IgnorePointer(
-                  ignoring: !_isOpen,
-                  child: AnimatedOpacity(
-                    opacity: _isOpen ? 1 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: GestureDetector(
-                      onTap: _toggleSidebar,
-                      child: Container(color: Colors.black26),
                     ),
-                  ),
-                ),
-                AnimatedBuilder(
-                  animation: _controller,
-                  builder: (context, _) {
-                    return Transform.translate(
-                      offset: Offset(_sidebarTranslate.value, 0),
-                      child: SizedBox(
-                        width: sidebarWidth,
-                        height: MediaQuery.of(context).size.height,
-                        child: Sidebar(
-                          role: "staff",
-                          onNavigate: _handleSidebarNavigation,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (var i = 0; i < entries.length; i++)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: colors[i % colors.length],
+                          borderRadius: BorderRadius.circular(99),
                         ),
                       ),
-                    );
-                  },
-                ),
+                      const SizedBox(width: 8),
+                      Text('${entries[i].key} (${entries[i].value})'),
+                    ],
+                  ),
               ],
-            );
-          },
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// 🔸 Top Performer Card (unchanged)
-class TopperCard extends StatelessWidget {
-  final String name;
-  final String regNo;
-  final double gpa;
+class _SemesterStatsChart extends StatelessWidget {
+  const _SemesterStatsChart({required this.semesterStats});
 
-  const TopperCard({
-    super.key,
-    required this.name,
-    required this.regNo,
-    required this.gpa,
-  });
+  final List<Map<String, dynamic>> semesterStats;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 240,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(1, 3)),
-        ],
-      ),
-      child: Column(
-        children: [
-          const Icon(Icons.star, color: Color(0xFFB11116), size: 38),
-          const SizedBox(height: 10),
-          Text(
-            name,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Semester Average Trend', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text(
+              'Each point here reflects the average marks for a semester across uploaded records.',
+              style: TextStyle(color: kTextLight, height: 1.5),
             ),
-          ),
-          Text(
-            regNo,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.black54),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "GPA: $gpa",
-            style: const TextStyle(
-              color: Color(0xFFB11116),
-              fontWeight: FontWeight.bold,
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 280,
+              child: semesterStats.isEmpty
+                  ? const Center(child: Text('No semester stats available.'))
+                  : LineChart(
+                      LineChartData(
+                        minY: 0,
+                        maxY: 100,
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          horizontalInterval: 20,
+                          getDrawingHorizontalLine: (value) => FlLine(
+                            color: Colors.grey.withValues(alpha: 0.18),
+                            strokeWidth: 1,
+                          ),
+                        ),
+                        borderData: FlBorderData(show: false),
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              interval: 20,
+                              reservedSize: 34,
+                              getTitlesWidget: (value, meta) => Text(
+                                value.toInt().toString(),
+                                style: const TextStyle(color: kTextLight, fontSize: 11),
+                              ),
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              interval: 1,
+                              getTitlesWidget: (value, meta) {
+                                if (!_isAxisIndex(value)) {
+                                  return const SizedBox.shrink();
+                                }
+                                final index = value.toInt();
+                                if (index < 0 || index >= semesterStats.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    'S${semesterStats[index]['semester']}',
+                                    style: const TextStyle(color: kTextLight, fontSize: 11),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: [
+                              for (var i = 0; i < semesterStats.length; i++)
+                                FlSpot(i.toDouble(), (semesterStats[i]['average_marks'] as num?)?.toDouble() ?? 0),
+                            ],
+                            color: kPrimaryColor,
+                            barWidth: 4,
+                            isCurved: true,
+                            dotData: const FlDotData(show: true),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: kPrimaryColor.withValues(alpha: 0.1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

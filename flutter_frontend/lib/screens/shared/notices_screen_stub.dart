@@ -1,5 +1,4 @@
-// This runs on mobile — no 'dart:html' here.
+// This runs on mobile; no web-only libraries are imported here.
 void pickFile() {
-  // Stub or use file picker plugin here
-  print("File picking not supported on this platform.");
+  // File picking is handled directly in the shared notices screen.
 }

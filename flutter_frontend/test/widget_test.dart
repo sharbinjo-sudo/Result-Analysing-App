@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:result_analysis_app/main.dart';
+import 'package:result_analysis_app/screens/login_page.dart';
 
 void main() {
-  testWidgets('App launches successfully', (WidgetTester tester) async {
-    // Build our app inside a test Material context.
-    await tester.pumpWidget(const MaterialApp(
-      home: VVCollegeApp(),
-    ));
+  testWidgets('Login screen renders key fields', (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: LoginPage()));
+    await tester.pump();
 
-    // Wait for all widgets to settle.
-    await tester.pumpAndSettle();
-
-    // Verify that the login page title is visible.
-    expect(find.textContaining('V V College'), findsOneWidget);
-
-    // Verify that Login button is visible.
+    expect(find.text('V V College of Engineering'), findsOneWidget);
+    expect(find.text('Result and Analysis Portal'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.byType(TextField), findsNWidgets(2));
     expect(find.text('Login'), findsOneWidget);
   });
 }

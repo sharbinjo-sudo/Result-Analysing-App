@@ -1,6 +1,8 @@
 // lib/widgets/sidebar.dart
 import 'package:flutter/material.dart';
 
+import '../utils/storage.dart';
+
 class Sidebar extends StatelessWidget {
   final String role;
   final void Function(String)? onNavigate;
@@ -80,7 +82,7 @@ class Sidebar extends StatelessWidget {
               child: ListView.separated(
                 padding: EdgeInsets.zero,
                 itemCount: menuItems.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 2),
+                separatorBuilder: (context, index) => const SizedBox(height: 2),
                 itemBuilder: (context, index) {
                   final item = menuItems[index];
                   final route = item["route"] as String;
@@ -111,6 +113,7 @@ class Sidebar extends StatelessWidget {
               title: "Logout",
               isSelected: currentRoute == '/login',
               onTap: () async {
+                final navigator = Navigator.of(context);
                 final confirmLogout = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
@@ -133,8 +136,8 @@ class Sidebar extends StatelessWidget {
                 );
 
                 if (confirmLogout == true) {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
+                  await SecureStorage.logout();
+                  navigator.pushNamedAndRemoveUntil(
                     '/login',
                     (route) => false,
                   );
@@ -169,7 +172,7 @@ class _SidebarItem extends StatelessWidget {
       splashColor: Colors.white10,
       hoverColor: Colors.white12,
       child: Container(
-        color: isSelected ? Colors.white.withOpacity(0.15) : null,
+        color: isSelected ? Colors.white.withValues(alpha: 0.15) : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: ListTile(
