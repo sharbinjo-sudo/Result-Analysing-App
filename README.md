@@ -1,6 +1,6 @@
 # 🏫 V V Result & Analysis Web App
 
-A full-stack **college result and analysis system** for **V V College of Engineering**, inspired by *Stucor*, built with:
+A full-stack **college result and analysis system** for **V V College of Engineering**, inspired by *Stucor & MyCamu*, built with:
 
 - 🌐 **Flutter Web** frontend  
 - ⚙️ **Django + Django REST Framework (DRF)** backend  
